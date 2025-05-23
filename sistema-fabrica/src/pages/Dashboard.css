@@ -1,0 +1,116 @@
+.dashboard {
+  padding: 2rem;
+  font-family: sans-serif;
+}
+
+.cards {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.card {
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  min-width: 150px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+th, td {
+  padding: 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid #ccc;
+}
+
+td img {
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* Badge base */
+.badge {
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+/* Badge para SETOR */
+.badge-setor.blue {
+  background-color: #2563eb; /* Gabarito */
+}
+
+.badge-setor.green {
+  background-color: #ffee00; /* Impressao */
+  color: rgb(255, 255, 255);
+}
+
+.badge-setor.red {
+  background-color: #dc2626;
+}
+
+.badge-setor.orange {
+  background-color: #f59e0b; /* Batida */
+}
+
+.badge-setor.purple {
+  background-color: #7e22ce; /* Embalagem */
+}
+
+.badge-setor.pink {
+  background-color: #ec4899; /* Costura */
+}
+
+.badge-setor.gray {
+  background-color: #00ff00;
+  color: white;
+}
+
+/* Badge para PRAZO */
+.badge-prazo.green {
+  background-color: #22c55e;
+}
+
+.badge-prazo.orange {
+  background-color: #f97316;
+}
+
+.badge-prazo.red {
+  background-color: #ef4444;
+}
+
+.teste-css {
+  color: red;
+  font-weight: bold;
+  font-size: 24px;
+  margin-bottom: 1rem;
+}
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modalContent {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+}
