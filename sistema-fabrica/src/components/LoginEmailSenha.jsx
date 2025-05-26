@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 
 const LoginEmailSenha = ({ onLogin }) => {
-  const [email, setEmail] = useState('');
+  const [login, setLogin] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState(null);
 
@@ -10,15 +10,18 @@ const LoginEmailSenha = ({ onLogin }) => {
     e.preventDefault();
     setErro(null);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password: senha,
-    });
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('*')
+      .eq('login', login)
+      .eq('senha', senha)
+      .single();
 
-    if (error) {
-      setErro(error.message);
+    if (error || !data) {
+      setErro('Usuário ou senha incorretos');
     } else {
-      onLogin(data.user);
+      localStorage.setItem('usuario', JSON.stringify(data));
+      onLogin(data);
     }
   };
 
@@ -27,10 +30,10 @@ const LoginEmailSenha = ({ onLogin }) => {
       <h2>Login</h2>
       <form onSubmit={handleLogin}>
         <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
+          type="text"
+          placeholder="Usuário"
+          value={login}
+          onChange={e => setLogin(e.target.value)}
           required
         />
         <br />
