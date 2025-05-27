@@ -23,20 +23,21 @@ function App() {
   const navigate = useNavigate();
   const audio = useRef(new Audio(somNotificacao));
 
-  const carregarAtividades = async () => {
-    const { data, error } = await supabase
-      .from('atividades')
-      .select('*')
-      .order('dataEntrega', { ascending: true });
+ const carregarAtividades = async () => {
+  const { data, error } = await supabase
+    .from('atividades')
+    .select('*')
+    .order('dataEntrega', { ascending: true });
 
-    if (error) {
-      console.error('Erro ao buscar atividades:', error);
-    } else {
-      setAtividades(data);
-    }
-  };
+  if (error) {
+    console.error('Erro ao buscar atividades:', error);
+  } else {
+    console.log('Atividades carregadas:', data);
+    setAtividades(data);
+  }
+};
 
-  useEffect(() => {
+ useEffect(() => {
   const usuarioSalvo = localStorage.getItem('usuario');
   if (usuarioSalvo) {
     const usuarioObj = JSON.parse(usuarioSalvo);
@@ -49,6 +50,7 @@ useEffect(() => {
     carregarAtividades();
   }
 }, [usuario]);
+
 
 
   const adicionarAtividade = async (novaAtividade) => {
@@ -122,7 +124,7 @@ useEffect(() => {
   const setorUsuario = normalize(usuario?.setor || 'admin');
 
 
-  const handleNovaAtividade = usuario
+ const handleNovaAtividade = usuario
   ? (novaAtividade) => {
       const setorAtividade = normalize(novaAtividade.setorAtual);
 
@@ -151,6 +153,7 @@ useEffect(() => {
       }
     }
   : noop;
+
 
   // ✅ Sempre chamado na mesma ordem
   useRealtimeAtividades(handleNovaAtividade);
