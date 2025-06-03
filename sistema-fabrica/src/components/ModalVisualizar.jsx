@@ -1,5 +1,8 @@
 import React from 'react';
 import jsPDF from 'jspdf';
+import Zoom from 'react-medium-image-zoom';
+import 'react-medium-image-zoom/dist/styles.css';
+
 
 const ModalVisualizar = ({ pedido, onClose }) => {
   const criarDataLocal = (dataStr) => {
@@ -21,24 +24,26 @@ const ModalVisualizar = ({ pedido, onClose }) => {
     : [];
 
   // Função para carregar imagem e retornar base64 para o jsPDF
-  const getBase64ImageFromUrl = async (imageUrl) => {
-    const res = await fetch(imageUrl);
-    const blob = await res.blob();
+  // Função para carregar imagem e retornar base64 para o jsPDF
+const getBase64ImageFromUrl = async (imageUrl) => {
+  const res = await fetch(imageUrl);
+  const blob = await res.blob();
 
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        resolve(reader.result);
-      };
-      reader.readAsDataURL(blob);
-    });
-  };
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      resolve(reader.result);
+    };
+    reader.readAsDataURL(blob);
+  });
+};
 
- const gerarPDF = async () => {
+const gerarPDF = async () => {
   const doc = new jsPDF('p', 'pt', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 40;
+let pageIndex = 1;
 
   // Cabeçalho da página
   const drawHeader = (pagina = 1) => {
@@ -67,102 +72,133 @@ const ModalVisualizar = ({ pedido, onClose }) => {
     return startY + 90;
   };
 
-  // Inserir imagens
-  const insertImages = async (startY) => {
-  const colWidth = (pageWidth - margin * 3) / 2;
-  const imgMaxWidth = colWidth;
-  const imgMaxHeight = 200;
+  // Imagem + Descrição lado a lado
+  const insertMainImageAndDescricao = async (startY) => {
+  const contentWidth = pageWidth - margin * 2;
+  const halfWidth = contentWidth / 2;
 
-  // Carregar imagem principal e obter proporção original
-  const imgPrincipalBase64 = await getBase64ImageFromUrl(pedido.imagem);
+  const maxImageWidth = halfWidth;
+  const maxImageHeight = 260;
+
+  const imgBase64 = await getBase64ImageFromUrl(pedido.imagem);
   const img = new Image();
-  img.src = imgPrincipalBase64;
+  img.src = imgBase64;
+  await new Promise((resolve) => { img.onload = resolve; });
 
-  await new Promise((resolve) => {
-    img.onload = () => resolve();
-  });
+  let width = img.width;
+  let height = img.height;
+  const ratio = Math.min(maxImageWidth / width, maxImageHeight / height);
+  width *= ratio;
+  height *= ratio;
 
-  const aspectRatio = img.width / img.height;
-  let imgWidth = imgMaxWidth;
-  let imgHeight = imgWidth / aspectRatio;
+  const imageX = margin;
+  const imageY = startY;
+  let descricaoX = imageX + width + 20;
+  let descricaoY = imageY;
 
-  // Se a altura exceder o máximo, redimensiona novamente
-  if (imgHeight > imgMaxHeight) {
-    imgHeight = imgMaxHeight;
-    imgWidth = imgHeight * aspectRatio;
+  const descricaoText = pedido.descricao || '';
+  const descricaoMaxWidth = pageWidth - descricaoX - margin;
+  const descricaoLines = doc.splitTextToSize(descricaoText, descricaoMaxWidth);
+
+  // Desenha imagem
+  const novoStartY = drawHeader(pageIndex); // pega o Y final do cabeçalho
+doc.addImage(imgBase64, 'JPEG', imageX, novoStartY, width, height);
+
+
+  // Título
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor('#000');
+  doc.text('Descrição:', descricaoX, descricaoY);
+  descricaoY += 20;
+
+  // Texto
+  doc.setFont('helvetica', 'normal');
+  const lineHeight = 16;
+  let i = 0;
+  let maxY = imageY + height;
+
+  while (i < descricaoLines.length) {
+    if (descricaoY + lineHeight > pageHeight - margin) {
+  doc.addPage();
+  const novoStartY = drawHeader(++pageIndex); // redesenha cabeçalho e guarda Y
+  doc.addImage(imgBase64, 'JPEG', imageX, novoStartY, width, height);
+
+  descricaoX = imageX + width + 20;
+  descricaoY = novoStartY;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text('Descrição (continuação):', descricaoX, descricaoY);
+  descricaoY += 20;
+
+  doc.setFont('helvetica', 'normal');
+}
+
+
+    doc.text(descricaoLines[i], descricaoX, descricaoY);
+    descricaoY += lineHeight;
+    i++;
+    maxY = Math.max(maxY, descricaoY);
   }
 
-  // Centralizar na coluna esquerda (opcional)
-  const imgX = margin + (imgMaxWidth - imgWidth) / 2;
+  return { endY: imageY + height + 20 };
+};
 
-  doc.addImage(imgPrincipalBase64, 'JPEG', imgX, startY, imgWidth, imgHeight);
-
-  // Aumentar tamanho das imagens adicionais
-  const extraSize = 180;
-  let extrasX = margin;
-  let extrasY = startY + imgHeight + 10;
+  // Imagens adicionais em grade abaixo
+  const insertExtraImages = async (startY) => {
+  const x = margin; // mantém à esquerda
+  const maxWidth = 260;
+  const maxHeight = 200;
+  const spacing = 15;
+  let y = startY;
 
   for (let i = 0; i < imagensExtras.length; i++) {
     try {
-      const imgExtraBase64 = await getBase64ImageFromUrl(imagensExtras[i]);
-      doc.addImage(imgExtraBase64, 'JPEG', extrasX, extrasY, extraSize, extraSize);
-      extrasX += extraSize + 10;
+      const extraBase64 = await getBase64ImageFromUrl(imagensExtras[i]);
+      const img = new Image();
+      img.src = extraBase64;
+      await new Promise((resolve) => { img.onload = resolve; });
 
-      if (extrasX + extraSize > margin + colWidth) {
-        extrasX = margin;
-        extrasY += extraSize + 10;
+      let w = img.width;
+      let h = img.height;
+      const ratio = Math.min(maxWidth / w, maxHeight / h);
+      w *= ratio;
+      h *= ratio;
+
+      if (y + h > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
       }
+
+      doc.addImage(extraBase64, 'JPEG', x, y, w, h);
+      y += h + spacing;
     } catch (e) {
       console.warn('Erro ao carregar imagem adicional:', e);
     }
   }
 
-  return { endY: extrasY + extraSize + 10 };
+  return { endY: y };
 };
+
 
   // Geração do PDF
   try {
     let pageIndex = 1;
     let currentY = drawHeader(pageIndex);
-    const { endY } = await insertImages(currentY);
 
-    // Descrição
-    const descricaoX = margin * 2 + (pageWidth - margin * 3) / 2;
-    let descricaoY = currentY;
+    // Imagem principal + descrição lado a lado
+    const { endY: afterMain } = await insertMainImageAndDescricao(currentY);
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor('#000');
-    doc.text('Descrição:', descricaoX, descricaoY);
-    descricaoY += 20;
-
-    doc.setFont('helvetica', 'normal');
-    const descricaoText = pedido.descricao || '';
-    const descricaoMaxWidth = (pageWidth - margin * 3) / 2;
-    const descricaoLines = doc.splitTextToSize(descricaoText, descricaoMaxWidth);
-
-    const lineHeight = 16;
-    let linesPerPage = Math.floor((pageHeight - descricaoY - margin) / lineHeight);
-
-    while (descricaoLines.length > 0) {
-      const pageLines = descricaoLines.splice(0, linesPerPage);
-
-      if (pageIndex > 1) {
-        doc.addPage();
-        currentY = drawHeader(pageIndex);
-        await insertImages(currentY);
-        descricaoY = currentY + 20;
-      }
-
-      doc.text(pageLines, descricaoX, descricaoY);
-      pageIndex++;
-    }
+    // Imagens adicionais abaixo
+    await insertExtraImages(afterMain);
 
     doc.save(`pedido_${pedido.pedido}.pdf`);
   } catch (error) {
     alert('Erro ao gerar PDF: ' + error.message);
   }
 };
+
 
   return (
     <div
@@ -216,17 +252,21 @@ const ModalVisualizar = ({ pedido, onClose }) => {
 
         <h2 style={{ marginTop: 0, marginBottom: '20px' }}>Detalhes do Pedido</h2>
 
-        <img
-          src={pedido.imagem}
-          alt="Imagem principal"
-          style={{
-            width: '100%',
-            maxHeight: '350px',
-            objectFit: 'contain',
-            marginBottom: '15px',
-            borderRadius: '6px',
-          }}
-        />
+        <Zoom>
+  <img
+    src={pedido.imagem}
+    alt="Imagem principal"
+    style={{
+      width: '100%',
+      maxHeight: '350px',
+      objectFit: 'contain',
+      marginBottom: '15px',
+      borderRadius: '6px',
+      cursor: 'zoom-in',
+    }}
+  />
+</Zoom>
+
 
         <p><strong>Pedido:</strong> {pedido.pedido}</p>
         <p><strong>Cliente:</strong> {pedido.cliente}</p>
@@ -261,18 +301,21 @@ const ModalVisualizar = ({ pedido, onClose }) => {
               }}
             >
               {imagensExtras.map((url, index) => (
-                <img
-                  key={index}
-                  src={url}
-                  alt={`Imagem extra ${index + 1}`}
-                  style={{
-                    width: '120px',
-                    height: '120px',
-                    objectFit: 'cover',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
-                  }}
-                />
+                <Zoom key={index}>
+  <img
+    src={url}
+    alt={`Imagem extra ${index + 1}`}
+    style={{
+      width: '120px',
+      height: '120px',
+      objectFit: 'cover',
+      borderRadius: '8px',
+      boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+      cursor: 'zoom-in',
+    }}
+  />
+</Zoom>
+
               ))}
             </div>
           </>

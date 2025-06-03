@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 
-const useRealtimeAtividades = (onNovaAtividade) => {
+const useRealtimeAtividades = (onNovaAtividade, onAtividadeRemovida) => {
   useEffect(() => {
     const canal = supabase
       .channel('atividades-channel')
@@ -13,20 +13,25 @@ const useRealtimeAtividades = (onNovaAtividade) => {
           table: 'atividades',
         },
         (payload) => {
-          const novaAtividade = payload.new;
+          const { eventType, new: novaAtividade, old: atividadeAntiga } = payload;
 
-          // Só processa se for um INSERT ou UPDATE onde setorAtual mudou
-          if (payload.eventType === 'INSERT') {
+          if (eventType === 'INSERT') {
             onNovaAtividade(novaAtividade);
           }
 
-          if (payload.eventType === 'UPDATE') {
-            const setorAntes = payload.old?.setorAtual;
-            const setorDepois = payload.new?.setorAtual;
+          if (eventType === 'UPDATE') {
+            const setorAntes = atividadeAntiga?.setorAtual;
+            const setorDepois = novaAtividade?.setorAtual;
 
             // Só notifica se o setorAtual mudou
             if (setorAntes !== setorDepois) {
               onNovaAtividade(novaAtividade);
+            }
+          }
+
+          if (eventType === 'DELETE') {
+            if (onAtividadeRemovida) {
+              onAtividadeRemovida(atividadeAntiga.id);
             }
           }
         }
@@ -36,7 +41,7 @@ const useRealtimeAtividades = (onNovaAtividade) => {
     return () => {
       supabase.removeChannel(canal);
     };
-  }, [onNovaAtividade]);
+  }, [onNovaAtividade, onAtividadeRemovida]);
 };
 
 export default useRealtimeAtividades;

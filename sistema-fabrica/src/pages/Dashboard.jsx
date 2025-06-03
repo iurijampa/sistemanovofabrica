@@ -1,11 +1,36 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import CadastroPedido from './CadastroPedido';
 import ModalVisualizar from '../components/ModalVisualizar';
 import ModalEditar from '../components/ModalEditar';
-import { supabase } from '../supabaseClient';
 import './Dashboard.css';
 
-const Dashboard = ({ atividades, onVisualizar, onAbrirEdicao, onEditar, onApagar, onConcluir, usuarioAtual }) => {
+const ordemSetores = [
+  'Gabarito',
+  'Impressao',
+  'Batida',
+  'Costura',
+  'Embalagem',
+  'Finalizado',
+];
+
+const badgeColors = {
+  Gabarito: 'blue',
+  Impressao: 'green',
+  Batida: 'orange',
+  Costura: 'pink',
+  Embalagem: 'purple',
+  Finalizado: 'gray',
+};
+
+const Dashboard = ({
+  atividades,
+  onVisualizar,
+  onAbrirEdicao,
+  onEditar,
+  onApagar,
+  onConcluir,
+  usuarioAtual,
+}) => {
   const criarDataLocal = (dataStr) => {
     if (!dataStr) return null;
     const partes = dataStr.split('-');
@@ -19,29 +44,21 @@ const Dashboard = ({ atividades, onVisualizar, onAbrirEdicao, onEditar, onApagar
   const [modalEditar, setModalEditar] = useState(false);
   const [atividadeSelecionada, setAtividadeSelecionada] = useState(null);
 
-  
-  
-  // Novo estado para modal concluir
-  const [modalConcluirAberto, setModalConcluirAberto] = useState(false);
-  const [atividadeParaConcluir, setAtividadeParaConcluir] = useState(null);
-
-  // Campo de filtro de busca
+  // Filtros
   const [filtro, setFiltro] = useState('');
+  const [setorFiltro, setSetorFiltro] = useState('');
+  const [aba, setAba] = useState('andamento'); // 'andamento' ou 'finalizados'
 
-  // Contagem por setor
-  const setorCount = atividades.reduce((acc, atividade) => {
-    acc[atividade.setorAtual] = (acc[atividade.setorAtual] || 0) + 1;
+  // Contagem por setor (garantindo todos aparecem)
+  const setorCount = ordemSetores.reduce((acc, setor) => {
+    acc[setor] = 0;
     return acc;
   }, {});
-
-  const badgeColors = {
-    Gabarito: 'blue',
-    Impressao: 'green',
-    Batida: 'orange',
-    Costura: 'pink',
-    Embalagem: 'purple',
-    Finalizado: 'gray',
-  };
+  atividades.forEach((a) => {
+    if (setorCount.hasOwnProperty(a.setorAtual)) {
+      setorCount[a.setorAtual]++;
+    }
+  });
 
   const getPrazoBadgeClass = (dataEntrega) => {
     if (!dataEntrega) return '';
@@ -56,9 +73,19 @@ const Dashboard = ({ atividades, onVisualizar, onAbrirEdicao, onEditar, onApagar
 
   const normalizar = (str) => str?.toString().toLowerCase().trim() || '';
 
+  // Só mostra essas melhorias se admin:
+  const isAdmin = usuarioAtual === 'admin';
+
+  // Filtro com aba, setor e texto
   const atividadesFiltradas = atividades.filter((a) => {
+    // Aba: andamento = tudo que NÃO é finalizado, finalizados = só finalizado
+    const statusOk =
+      !isAdmin ||
+      (aba === 'andamento' ? a.setorAtual !== 'Finalizado' : a.setorAtual === 'Finalizado');
     const termo = normalizar(filtro);
-    if (!termo) return true;
+    const setorOk = !setorFiltro || a.setorAtual === setorFiltro;
+
+    if (!termo && setorOk && statusOk) return true;
 
     const pedido = normalizar(a.pedido);
     const cliente = normalizar(a.cliente);
@@ -67,9 +94,11 @@ const Dashboard = ({ atividades, onVisualizar, onAbrirEdicao, onEditar, onApagar
       : '';
 
     return (
-      pedido.includes(termo) ||
-      cliente.includes(termo) ||
-      dataEntregaFormatada.includes(termo)
+      setorOk &&
+      statusOk &&
+      (pedido.includes(termo) ||
+        cliente.includes(termo) ||
+        dataEntregaFormatada.includes(termo))
     );
   });
 
@@ -98,95 +127,97 @@ const Dashboard = ({ atividades, onVisualizar, onAbrirEdicao, onEditar, onApagar
   };
 
   const salvarEdicao = (dadosEditados) => {
-  console.log('Salvando edição...', dadosEditados); // agora está certo
-
-  const dados = {
-    id: atividadeSelecionada.id,
-    pedido: dadosEditados.pedido,
-    cliente: dadosEditados.cliente,
-    imagem: dadosEditados.imagem,
-    descricao: dadosEditados.descricao,
-    setorAtual: dadosEditados.setorAtual,
-    dataEntrega: dadosEditados.dataEntrega,
-    funcionarioEnvio: atividadeSelecionada.funcionarioEnvio,
-    observacaoEnvio: atividadeSelecionada.observacaoEnvio,
-  };
-
-  onEditar(dados);
-  fecharModal();
-};
-
-
-  // Função para obter o próximo setor da sequência
-  const setores = ['Gabarito', 'Impressao', 'Batida', 'Costura', 'Embalagem', 'Finalizado'];
-  const proximoSetor = (setorAtual) => {
-    const indexAtual = setores.indexOf(setorAtual);
-    if (indexAtual === -1 || indexAtual === setores.length - 1) {
-      return setorAtual;
-    }
-    return setores[indexAtual + 1];
-  };
-
-  // NOVAS FUNÇÕES para modal concluir
-
-  const abrirModalConcluir = (atividade) => {
-    setAtividadeParaConcluir(atividade);
-    setModalConcluirAberto(true);
-  };
-
-  const fecharModalConcluir = () => {
-    setModalConcluirAberto(false);
-    setAtividadeParaConcluir(null);
-  };
-
-  // ALTERAÇÃO AQUI: adicionando a dataEnvio com data/hora atual
-  const concluirAtividadeComDados = (nomeFuncionario, observacao) => {
-    if (!atividadeParaConcluir) return;
-
-    const novoSetor = proximoSetor(atividadeParaConcluir.setorAtual);
-    if (novoSetor === atividadeParaConcluir.setorAtual) {
-      alert('Esta atividade já está no setor Finalizado.');
-      fecharModalConcluir();
-      return;
-    }
-
-    if (!nomeFuncionario.trim() || !observacao.trim()) {
-      alert('Nome do funcionário e observação são obrigatórios.');
-      return;
-    }
-
-    onEditar({
-      ...atividadeParaConcluir,
-      setorAtual: novoSetor,
-      funcionarioEnvio: nomeFuncionario.trim(),
-      observacaoEnvio: observacao.trim(),
-      dataEnvio: new Date().toISOString(), // <-- adiciona data e hora da ação
-    });
-
-    fecharModalConcluir();
+    const dados = {
+      id: atividadeSelecionada.id,
+      pedido: dadosEditados.pedido,
+      cliente: dadosEditados.cliente,
+      imagem: dadosEditados.imagem,
+      descricao: dadosEditados.descricao,
+      setorAtual: dadosEditados.setorAtual,
+      dataEntrega: dadosEditados.dataEntrega,
+      funcionarioEnvio: atividadeSelecionada.funcionarioEnvio,
+      observacaoEnvio: atividadeSelecionada.observacaoEnvio,
+    };
+    onEditar(dados);
+    fecharModal();
   };
 
   return (
     <div className="dashboard">
       <h1>Dashboard</h1>
 
-            <div className="cards">
-        {Object.entries(setorCount).map(([setor, count]) => (
-          <div key={setor} className="card">
-            <div>{setor}</div>
-            <div className={`badge badge-setor ${badgeColors[setor] || ''}`}>{count}</div>
-          </div>
-        ))}
-      </div>
+      {/* Contadores por setor na ordem certa - só para admin */}
+      {isAdmin && (
+        <div className="cards">
+          {ordemSetores.map((setor) => (
+            <div key={setor} className="card">
+              <div>{setor}</div>
+              <div className={`badge badge-setor ${badgeColors[setor] || ''}`}>
+                {setorCount[setor]}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* Campo de busca */}
-      <input
-        type="text"
-        placeholder="Buscar por cliente, pedido ou data de entrega"
-        value={filtro}
-        onChange={(e) => setFiltro(e.target.value)}
-        style={{ marginBottom: '16px', padding: '8px', width: '100%', maxWidth: '400px' }}
-      />
+      {/* Abas de andamento/finalizados - só para admin */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 16 }}>
+  {isAdmin && (
+    <select
+      value={setorFiltro}
+      onChange={(e) => setSetorFiltro(e.target.value)}
+      style={{ padding: 8 }}
+    >
+      <option value="">Todos os setores</option>
+      {ordemSetores
+  .filter(setor => setor !== "Finalizado")
+  .map((setor) => (
+    <option key={setor} value={setor}>{setor}</option>
+))}
+
+    </select>
+  )}
+  <input
+    type="text"
+    placeholder="Buscar por cliente, pedido ou data de entrega"
+    value={filtro}
+    onChange={(e) => setFiltro(e.target.value)}
+    style={{ padding: '8px', width: '100%', maxWidth: '400px' }}
+  />
+  {isAdmin && (
+    <>
+      <button
+        style={{
+          padding: '8px 18px',
+          fontWeight: 'bold',
+          background: aba === 'andamento' ? '#eee' : '#fff',
+          border: aba === 'andamento' ? '2px solid #999' : '1px solid #ccc',
+          borderRadius: '10px',
+          cursor: aba === 'andamento' ? 'default' : 'pointer',
+        }}
+        onClick={() => setAba('andamento')}
+        disabled={aba === 'andamento'}
+      >
+        Em andamento
+      </button>
+      <button
+        style={{
+          padding: '8px 18px',
+          fontWeight: 'bold',
+          background: aba === 'finalizados' ? '#eee' : '#fff',
+          border: aba === 'finalizados' ? '2px solid #999' : '1px solid #ccc',
+          borderRadius: '10px',
+          cursor: aba === 'finalizados' ? 'default' : 'pointer',
+        }}
+        onClick={() => setAba('finalizados')}
+        disabled={aba === 'finalizados'}
+      >
+        Finalizados
+      </button>
+    </>
+  )}
+</div>
+
 
       <h2>Atividades</h2>
       <table>
@@ -203,55 +234,53 @@ const Dashboard = ({ atividades, onVisualizar, onAbrirEdicao, onEditar, onApagar
           </tr>
         </thead>
         <tbody>
-          {atividadesOrdenadas.map((a) => {
-    return (
-      
-      <tr key={a.id}>
-        <td>
-  {a.imagem ? (
-    <img
-      src={a.imagem}
-      alt="Imagem principal"
-      style={{
-        width: '60px',
-        height: '60px',
-        objectFit: 'cover',
-        borderRadius: '4px',
-        marginBottom: '4px',
-      }}
-      onError={(e) => {
-        e.target.onerror = null;
-        e.target.src = 'https://via.placeholder.com/40x40?text=Erro';
-      }}
-    />
-  ) : (
-    <span>Sem imagem</span>
-  )}
+          {atividadesOrdenadas.map((a) => (
+            <tr key={a.id}>
+              <td>
+                {a.imagem ? (
+                  <img
+                    src={a.imagem}
+                    alt="Imagem principal"
+                    style={{
+                      width: '60px',
+                      height: '60px',
+                      objectFit: 'cover',
+                      borderRadius: '4px',
+                      marginBottom: '4px',
+                    }}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://via.placeholder.com/40x40?text=Erro';
+                    }}
+                  />
+                ) : (
+                  <span>Sem imagem</span>
+                )}
 
-  {/* IMAGENS EXTRAS */}
-  {Array.isArray(a.imagensExtras) && a.imagensExtras.length > 0 && (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-      {a.imagensExtras.map((url, i) => (
-        <img
-          key={i}
-          src={url}
-          alt={`Imagem extra ${i}`}
-          style={{
-            width: '40px',
-            height: '40px',
-            objectFit: 'cover',
-            borderRadius: '4px',
-            border: '1px solid #ccc',
-          }}
-          onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = 'https://via.placeholder.com/40x40?text=Erro';
-          }}
-        />
-      ))}
-    </div>
-  )}
-</td>
+                {/* IMAGENS EXTRAS */}
+                {Array.isArray(a.imagensExtras) && a.imagensExtras.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                    {a.imagensExtras.map((url, i) => (
+                      <img
+                        key={i}
+                        src={url}
+                        alt={`Imagem extra ${i}`}
+                        style={{
+                          width: '40px',
+                          height: '40px',
+                          objectFit: 'cover',
+                          borderRadius: '4px',
+                          border: '1px solid #ccc',
+                        }}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://via.placeholder.com/40x40?text=Erro';
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </td>
 
               <td>{a.pedido}</td>
               <td>{a.cliente}</td>
@@ -265,7 +294,6 @@ const Dashboard = ({ atividades, onVisualizar, onAbrirEdicao, onEditar, onApagar
                   {a.dataEntrega ? criarDataLocal(a.dataEntrega).toLocaleDateString() : '-'}
                 </span>
               </td>
-              {/* ALTERAÇÃO AQUI: mostrar nome + data/hora da ação */}
               <td>
                 {a.funcionarioEnvio || '-'}
                 {a.dataEnvio && (
@@ -285,7 +313,7 @@ const Dashboard = ({ atividades, onVisualizar, onAbrirEdicao, onEditar, onApagar
                   👁️
                 </button>
 
-                {usuarioAtual === 'admin' && (
+                {isAdmin && (
                   <>
                     <button
                       title="Editar"
@@ -311,7 +339,7 @@ const Dashboard = ({ atividades, onVisualizar, onAbrirEdicao, onEditar, onApagar
                 {usuarioAtual !== 'finalizado' && a.setorAtual.toLowerCase() !== 'finalizado' && (
                   <button
                     title="Concluir e enviar para o próximo setor"
-                    onClick={() => abrirModalConcluir(a)}
+                    onClick={() => onConcluir(a)}
                     style={{ marginLeft: '8px' }}
                   >
                     ✅
@@ -319,73 +347,23 @@ const Dashboard = ({ atividades, onVisualizar, onAbrirEdicao, onEditar, onApagar
                 )}
               </td>
             </tr>
-           );
-})}
+          ))}
         </tbody>
       </table>
 
       {modalAberto && atividadeSelecionada && (
-  modalEditar ? (
-    <ModalEditar
-      pedido={atividadeSelecionada}
-      onClose={fecharModal}
-      onSalvar={salvarEdicao}
-    />
-  ) : (
-    <ModalVisualizar
-      pedido={atividadeSelecionada}
-      onClose={fecharModal}
-    />
-  )
-)}
-
-      {/* Modal concluir */}
-      {modalConcluirAberto && atividadeParaConcluir && (
-        <div className="modalOverlay" onClick={fecharModalConcluir}>
-          <div
-            className="modalContent"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: 'white',
-              padding: '20px',
-              borderRadius: '12px',
-              maxWidth: '400px',
-              margin: '50px auto',
-            }}
-          >
-            <h2>Concluir e Enviar para o Próximo Setor</h2>
-            <p>
-              Pedido: <strong>{atividadeParaConcluir.pedido}</strong>
-            </p>
-            <p>
-              Setor Atual: <strong>{atividadeParaConcluir.setorAtual}</strong>
-            </p>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const nomeFuncionario = e.target.nomeFuncionario.value;
-                const observacao = e.target.observacao.value;
-                concluirAtividadeComDados(nomeFuncionario, observacao);
-              }}
-            >
-              <label>
-                Seu Nome:
-                <input type="text" name="nomeFuncionario" required />
-              </label>
-              <br />
-              <label>
-                Observação:
-                <textarea name="observacao" required />
-              </label>
-              <br />
-              <button type="submit">Concluir</button>
-              <button type="button" onClick={fecharModalConcluir} style={{ marginLeft: '10px' }}>
-                Cancelar
-              </button>
-            </form>
-          </div>
-        </div>
+        modalEditar ? (
+          <ModalEditar
+            pedido={atividadeSelecionada}
+            onClose={fecharModal}
+            onSalvar={salvarEdicao}
+          />
+        ) : (
+          <ModalVisualizar
+            pedido={atividadeSelecionada}
+            onClose={fecharModal}
+          />
+        )
       )}
     </div>
   );

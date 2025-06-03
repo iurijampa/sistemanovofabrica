@@ -5,14 +5,17 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar }) => {
   const [nomeFuncionario, setNomeFuncionario] = useState('');
   const [observacao, setObservacao] = useState('');
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!nomeFuncionario.trim() || !observacao.trim()) {
-      alert('Por favor, preencha nome do funcionário e observação.');
-      return;
-    }
-    onConfirmar(nomeFuncionario.trim(), observacao.trim());
-  };
+  
+ const handleSubmit = (e) => {
+  e.preventDefault();
+  if (!nomeFuncionario.trim() || !observacao.trim()) {
+    alert('Por favor, preencha nome do funcionário e observação.');
+    return;
+  }
+  console.log('[MODAL] Vai confirmar:', nomeFuncionario, observacao);
+  onConfirmar(nomeFuncionario.trim(), observacao.trim());
+};
+
 
   return (
     <div className="modalOverlay" onClick={onCancelar}>
