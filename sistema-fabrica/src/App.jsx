@@ -120,31 +120,43 @@ function App() {
   }
 };
 
-  const salvarEdicao = async (pedidoAtualizado) => {
-    if (!pedidoAtualizado.id) {
-      alert('Erro: pedidoAtualizado.id está indefinido');
-      return;
-    }
+ const salvarEdicao = async (pedidoAtualizado) => {
+  if (!pedidoAtualizado.id) {
+    alert('Erro: pedidoAtualizado.id está indefinido');
+    return;
+  }
 
-    const { error } = await supabase
-      .from('atividades')
-      .update(pedidoAtualizado)
-      .eq('id', pedidoAtualizado.id);
 
-    if (error) {
-      console.error('Erro ao editar atividade:', error);
-    } else {
-      await registrarMovimentacao({
-        pedidoId: pedidoAtualizado.id,
-        setorOrigem: usuario.setor,
-        setorDestino: pedidoAtualizado.setorAtual,
-        tipo: 'editou',
-      });
+  const { error } = await supabase
+    .from('atividades')
+    .update(pedidoAtualizado)
+    .eq('id', pedidoAtualizado.id);
 
-      await carregarAtividades();
-      fecharEdicao();
-    }
-  };
+  // Adicione este trecho:
+  const { data: ver, error: errVer } = await supabase
+    .from('atividades')
+    .select('id, urgente')
+    .eq('id', pedidoAtualizado.id)
+    .single();
+  console.log('Verificando após update:', ver, errVer);
+
+  if (error) {
+    console.error('Erro ao editar atividade:', error);
+  } else {
+    await registrarMovimentacao({
+      pedidoId: pedidoAtualizado.id,
+      setorOrigem: usuario.setor,
+      setorDestino: pedidoAtualizado.setorAtual,
+      tipo: 'editou',
+    });
+
+    await carregarAtividades();
+    fecharEdicao();
+  }
+};
+
+
+
 
   // ATENÇÃO: Aqui está o novo fluxo com avanço de setor!
   const concluirAtividade = async (pedidoId, nomeFuncionario, observacao) => {
@@ -162,6 +174,7 @@ function App() {
 
     const setorAnterior = atividadeAtual.setorAtual;
     const novoSetor = proximoSetor(setorAnterior);
+  
 
     // Atualiza para o novo setor, nome, observação e data de envio
     const { error } = await supabase

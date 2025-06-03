@@ -1,7 +1,4 @@
 import React, { useState } from 'react';
-import CadastroPedido from './CadastroPedido';
-import ModalVisualizar from '../components/ModalVisualizar';
-import ModalEditar from '../components/ModalEditar';
 import './Dashboard.css';
 
 const ordemSetores = [
@@ -26,7 +23,7 @@ const Dashboard = ({
   atividades,
   onVisualizar,
   onAbrirEdicao,
-  onEditar,
+  onEditar,         // Só é usado se quiser em algum botão extra
   onApagar,
   onConcluir,
   usuarioAtual,
@@ -39,10 +36,6 @@ const Dashboard = ({
     const dia = parseInt(partes[2], 10);
     return new Date(ano, mes, dia);
   };
-
-  const [modalAberto, setModalAberto] = useState(false);
-  const [modalEditar, setModalEditar] = useState(false);
-  const [atividadeSelecionada, setAtividadeSelecionada] = useState(null);
 
   // Filtros
   const [filtro, setFiltro] = useState('');
@@ -108,40 +101,6 @@ const Dashboard = ({
     return dataA - dataB;
   });
 
-  const abrirModal = (atividade) => {
-    setAtividadeSelecionada(atividade);
-    setModalAberto(true);
-    setModalEditar(false);
-  };
-
-  const abrirModalEditar = (atividade) => {
-    setAtividadeSelecionada(atividade);
-    setModalAberto(true);
-    setModalEditar(true);
-  };
-
-  const fecharModal = () => {
-    setModalAberto(false);
-    setModalEditar(false);
-    setAtividadeSelecionada(null);
-  };
-
-  const salvarEdicao = (dadosEditados) => {
-    const dados = {
-      id: atividadeSelecionada.id,
-      pedido: dadosEditados.pedido,
-      cliente: dadosEditados.cliente,
-      imagem: dadosEditados.imagem,
-      descricao: dadosEditados.descricao,
-      setorAtual: dadosEditados.setorAtual,
-      dataEntrega: dadosEditados.dataEntrega,
-      funcionarioEnvio: atividadeSelecionada.funcionarioEnvio,
-      observacaoEnvio: atividadeSelecionada.observacaoEnvio,
-    };
-    onEditar(dados);
-    fecharModal();
-  };
-
   return (
     <div className="dashboard">
       <h1>Dashboard</h1>
@@ -162,62 +121,60 @@ const Dashboard = ({
 
       {/* Abas de andamento/finalizados - só para admin */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 16 }}>
-  {isAdmin && (
-    <select
-      value={setorFiltro}
-      onChange={(e) => setSetorFiltro(e.target.value)}
-      style={{ padding: 8 }}
-    >
-      <option value="">Todos os setores</option>
-      {ordemSetores
-  .filter(setor => setor !== "Finalizado")
-  .map((setor) => (
-    <option key={setor} value={setor}>{setor}</option>
-))}
-
-    </select>
-  )}
-  <input
-    type="text"
-    placeholder="Buscar por cliente, pedido ou data de entrega"
-    value={filtro}
-    onChange={(e) => setFiltro(e.target.value)}
-    style={{ padding: '8px', width: '100%', maxWidth: '400px' }}
-  />
-  {isAdmin && (
-    <>
-      <button
-        style={{
-          padding: '8px 18px',
-          fontWeight: 'bold',
-          background: aba === 'andamento' ? '#eee' : '#fff',
-          border: aba === 'andamento' ? '2px solid #999' : '1px solid #ccc',
-          borderRadius: '10px',
-          cursor: aba === 'andamento' ? 'default' : 'pointer',
-        }}
-        onClick={() => setAba('andamento')}
-        disabled={aba === 'andamento'}
-      >
-        Em andamento
-      </button>
-      <button
-        style={{
-          padding: '8px 18px',
-          fontWeight: 'bold',
-          background: aba === 'finalizados' ? '#eee' : '#fff',
-          border: aba === 'finalizados' ? '2px solid #999' : '1px solid #ccc',
-          borderRadius: '10px',
-          cursor: aba === 'finalizados' ? 'default' : 'pointer',
-        }}
-        onClick={() => setAba('finalizados')}
-        disabled={aba === 'finalizados'}
-      >
-        Finalizados
-      </button>
-    </>
-  )}
-</div>
-
+        {isAdmin && (
+          <select
+            value={setorFiltro}
+            onChange={(e) => setSetorFiltro(e.target.value)}
+            style={{ padding: 8 }}
+          >
+            <option value="">Todos os setores</option>
+            {ordemSetores
+              .filter(setor => setor !== "Finalizado")
+              .map((setor) => (
+                <option key={setor} value={setor}>{setor}</option>
+            ))}
+          </select>
+        )}
+        <input
+          type="text"
+          placeholder="Buscar por cliente, pedido ou data de entrega"
+          value={filtro}
+          onChange={(e) => setFiltro(e.target.value)}
+          style={{ padding: '8px', width: '100%', maxWidth: '400px' }}
+        />
+        {isAdmin && (
+          <>
+            <button
+              style={{
+                padding: '8px 18px',
+                fontWeight: 'bold',
+                background: aba === 'andamento' ? '#eee' : '#fff',
+                border: aba === 'andamento' ? '2px solid #999' : '1px solid #ccc',
+                borderRadius: '10px',
+                cursor: aba === 'andamento' ? 'default' : 'pointer',
+              }}
+              onClick={() => setAba('andamento')}
+              disabled={aba === 'andamento'}
+            >
+              Em andamento
+            </button>
+            <button
+              style={{
+                padding: '8px 18px',
+                fontWeight: 'bold',
+                background: aba === 'finalizados' ? '#eee' : '#fff',
+                border: aba === 'finalizados' ? '2px solid #999' : '1px solid #ccc',
+                borderRadius: '10px',
+                cursor: aba === 'finalizados' ? 'default' : 'pointer',
+              }}
+              onClick={() => setAba('finalizados')}
+              disabled={aba === 'finalizados'}
+            >
+              Finalizados
+            </button>
+          </>
+        )}
+      </div>
 
       <h2>Atividades</h2>
       <table>
@@ -234,86 +191,84 @@ const Dashboard = ({
           </tr>
         </thead>
         <tbody>
-  {atividadesOrdenadas.map((a) => (
-    <tr
-      key={a.id}
-      style={{
-        background: a.urgente ? 'red' : undefined,
-        color: a.urgente ? '#fff' : undefined,
-        fontWeight: a.urgente ? 'bold' : undefined,
-        fontSize: a.urgente ? '1.1em' : undefined,
-        letterSpacing: a.urgente ? 2 : undefined,
-        transition: 'background 0.3s',
-      }}
-    >
-      <td>
-        {a.imagem ? (
-          <img
-            src={a.imagem}
-            alt="Imagem principal"
-            style={{
-              width: '60px',
-              height: '60px',
-              objectFit: 'cover',
-              borderRadius: '4px',
-              marginBottom: '4px',
-            }}
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = 'https://via.placeholder.com/40x40?text=Erro';
-            }}
-          />
-        ) : (
-          <span>Sem imagem</span>
-        )}
-
-        {/* IMAGENS EXTRAS */}
-        {Array.isArray(a.imagensExtras) && a.imagensExtras.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-            {a.imagensExtras.map((url, i) => (
-              <img
-                key={i}
-                src={url}
-                alt={`Imagem extra ${i}`}
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  objectFit: 'cover',
-                  borderRadius: '4px',
-                  border: '1px solid #ccc',
-                }}
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = 'https://via.placeholder.com/40x40?text=Erro';
-                }}
-              />
-            ))}
-          </div>
-        )}
-      </td>
-      <td>{a.pedido}</td>
-      <td>
-        {a.urgente && (
-          <span style={{
-            fontSize: '0.95em',
-            marginRight: 10,
-            background: '#fff3',
-            padding: '2px 12px',
-            borderRadius: 6,
-            verticalAlign: 'middle',
-            display: 'inline-block',
-            marginBottom: 4,
-            marginTop: 2,
-            boxShadow: '0 2px 10px #f001',
-            animation: 'pulseUrgente 1s infinite alternate',
-            color: '#fff',
-          }}>
-            🚨 URGENTE
-          </span>
-        )}
-        <span style={{ verticalAlign: 'middle' }}>{a.cliente}</span>
-      </td>
-
+          {atividadesOrdenadas.map((a) => (
+            <tr
+              key={a.id}
+              style={{
+                background: a.urgente ? 'red' : undefined,
+                color: a.urgente ? '#fff' : undefined,
+                fontWeight: a.urgente ? 'bold' : undefined,
+                fontSize: a.urgente ? '1.1em' : undefined,
+                letterSpacing: a.urgente ? 2 : undefined,
+                transition: 'background 0.3s',
+              }}
+            >
+              <td>
+                {a.imagem ? (
+                  <img
+                    src={a.imagem}
+                    alt="Imagem principal"
+                    style={{
+                      width: '60px',
+                      height: '60px',
+                      objectFit: 'cover',
+                      borderRadius: '4px',
+                      marginBottom: '4px',
+                    }}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://via.placeholder.com/40x40?text=Erro';
+                    }}
+                  />
+                ) : (
+                  <span>Sem imagem</span>
+                )}
+                {/* IMAGENS EXTRAS */}
+                {Array.isArray(a.imagensExtras) && a.imagensExtras.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                    {a.imagensExtras.map((url, i) => (
+                      <img
+                        key={i}
+                        src={url}
+                        alt={`Imagem extra ${i}`}
+                        style={{
+                          width: '40px',
+                          height: '40px',
+                          objectFit: 'cover',
+                          borderRadius: '4px',
+                          border: '1px solid #ccc',
+                        }}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://via.placeholder.com/40x40?text=Erro';
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </td>
+              <td>{a.pedido}</td>
+              <td>
+                {a.urgente && (
+                  <span style={{
+                    fontSize: '0.95em',
+                    marginRight: 10,
+                    background: '#fff3',
+                    padding: '2px 12px',
+                    borderRadius: 6,
+                    verticalAlign: 'middle',
+                    display: 'inline-block',
+                    marginBottom: 4,
+                    marginTop: 2,
+                    boxShadow: '0 2px 10px #f001',
+                    animation: 'pulseUrgente 1s infinite alternate',
+                    color: '#fff',
+                  }}>
+                    🚨 URGENTE
+                  </span>
+                )}
+                <span style={{ verticalAlign: 'middle' }}>{a.cliente}</span>
+              </td>
               <td>
                 <span className={`badge badge-setor ${badgeColors[a.setorAtual] || ''}`}>
                   {a.setorAtual}
@@ -333,11 +288,10 @@ const Dashboard = ({
                 )}
               </td>
               <td>{a.observacaoEnvio || '-'}</td>
-
               <td>
                 <button
                   title="Visualizar"
-                  onClick={() => abrirModal(a)}
+                  onClick={() => onVisualizar(a)}
                   style={{ marginRight: '8px' }}
                 >
                   👁️
@@ -347,7 +301,7 @@ const Dashboard = ({
                   <>
                     <button
                       title="Editar"
-                      onClick={() => abrirModalEditar(a)}
+                      onClick={() => onAbrirEdicao(a)}
                       style={{ marginRight: '8px' }}
                     >
                       ✏️
@@ -380,21 +334,6 @@ const Dashboard = ({
           ))}
         </tbody>
       </table>
-
-      {modalAberto && atividadeSelecionada && (
-        modalEditar ? (
-          <ModalEditar
-            pedido={atividadeSelecionada}
-            onClose={fecharModal}
-            onSalvar={salvarEdicao}
-          />
-        ) : (
-          <ModalVisualizar
-            pedido={atividadeSelecionada}
-            onClose={fecharModal}
-          />
-        )
-      )}
     </div>
   );
 };

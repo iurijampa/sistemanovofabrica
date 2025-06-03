@@ -77,8 +77,8 @@ const ModalEditar = ({ pedido, onClose, onSalvar }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    let atualizacoes = { ...formData, urgente }; // <- Inclui urgente
-
+    let atualizacoes = { ...formData, urgente: !!urgente }; // <- Inclui urgente
+console.log("OBJETO ENVIADO PARA SALVAR:", atualizacoes);
     // Upload imagem principal nova
     if (imagemPrincipalArquivo) {
       const fileName = `pedidos/${Date.now()}_${imagemPrincipalArquivo.name}`;
