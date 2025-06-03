@@ -10,6 +10,7 @@ const CadastroPedido = ({ onCadastrar }) => {
   const [descricao, setDescricao] = useState('');
   const [setorAtual, setSetorAtual] = useState('');
   const [dataEntrega, setDataEntrega] = useState('');
+  const [urgente, setUrgente] = useState(false); // NOVO
 
   const handleAdicionarImagemExtra = (e) => {
     const arquivos = Array.from(e.target.files);
@@ -62,6 +63,7 @@ const CadastroPedido = ({ onCadastrar }) => {
       descricao,
       setorAtual,
       dataEntrega: new Date(dataEntrega).toISOString(),
+      urgente, // NOVO
     };
 
     await onCadastrar(novaAtividade);
@@ -75,6 +77,7 @@ const CadastroPedido = ({ onCadastrar }) => {
     setDescricao('');
     setSetorAtual('');
     setDataEntrega('');
+    setUrgente(false); // RESET URGENTE
   };
 
   return (
@@ -95,86 +98,85 @@ const CadastroPedido = ({ onCadastrar }) => {
           Imagem Principal:
           <input type="file" accept="image/*" onChange={(e) => setImagemPrincipal(e.target.files[0])} required />
         </label>
-        
-{imagemPrincipal && (
-  <div style={{ marginBottom: '10px' }}>
-    <img
-      src={URL.createObjectURL(imagemPrincipal)}
-      alt="Prévia principal"
-      style={{ width: '100px', marginRight: '10px' }}
-    />
-    <button type="button" onClick={() => setImagemPrincipal(null)}>
-      ❌ Remover
-    </button>
-  </div>
-)}
+
+        {imagemPrincipal && (
+          <div style={{ marginBottom: '10px' }}>
+            <img
+              src={URL.createObjectURL(imagemPrincipal)}
+              alt="Prévia principal"
+              style={{ width: '100px', marginRight: '10px' }}
+            />
+            <button type="button" onClick={() => setImagemPrincipal(null)}>
+              ❌ Remover
+            </button>
+          </div>
+        )}
 
         <label>
           Imagens Adicionais:
           <input type="file" accept="image/*" multiple onChange={handleAdicionarImagemExtra} />
         </label>
 
-{imagensExtras.length > 0 && (
-  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-    {imagensExtras.map((img, index) => (
-      <div key={index} style={{ position: 'relative', display: 'inline-block' }}>
-  <img
-    src={URL.createObjectURL(img)}
-    alt={`Extra ${index}`}
-    style={{ width: '80px', height: '80px', objectFit: 'cover', border: '1px solid #ccc', borderRadius: '4px' }}
-  />
-  <button
-    type="button"
-    onClick={() => {
-      const novaLista = imagensExtras.filter((_, i) => i !== index);
-      setImagensExtras(novaLista);
-    }}
-    style={{
-      position: 'absolute',
-      top: '2px',
-      right: '2px',
-      background: 'rgba(255, 0, 0, 0.8)',
-      color: '#fff',
-      border: 'none',
-      borderRadius: '4px',
-      padding: '0 5px',
-      fontSize: '12px',
-      cursor: 'pointer',
-      lineHeight: '16px'
-    }}
-  >
-    X
-  </button>
-</div>
-    ))}
-  </div>
-)}
+        {imagensExtras.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+            {imagensExtras.map((img, index) => (
+              <div key={index} style={{ position: 'relative', display: 'inline-block' }}>
+                <img
+                  src={URL.createObjectURL(img)}
+                  alt={`Extra ${index}`}
+                  style={{ width: '80px', height: '80px', objectFit: 'cover', border: '1px solid #ccc', borderRadius: '4px' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const novaLista = imagensExtras.filter((_, i) => i !== index);
+                    setImagensExtras(novaLista);
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '2px',
+                    right: '2px',
+                    background: 'rgba(255, 0, 0, 0.8)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '0 5px',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    lineHeight: '16px'
+                  }}
+                >
+                  X
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <label>
-  Descrição do Pedido:
-  <textarea
-    value={descricao}
-    onChange={(e) => setDescricao(e.target.value)}
-    rows={6}
-    placeholder="Ex: 
+          Descrição do Pedido:
+          <textarea
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            rows={6}
+            placeholder="Ex: 
     DRYFIT
 - Camisa preta M (cliente João)
 - Camisa branca G (cliente Maria)
 - 1 X G - 10 - FULANO"
-    style={{
-      width: '100%',
-      minHeight: '120px',
-      resize: 'vertical',
-      padding: '10px',
-      fontSize: '14px',
-      borderRadius: '6px',
-      border: '1px solid #ccc',
-      boxSizing: 'border-box'
-    }}
-    required
-  />
-</label>
-
+            style={{
+              width: '100%',
+              minHeight: '120px',
+              resize: 'vertical',
+              padding: '10px',
+              fontSize: '14px',
+              borderRadius: '6px',
+              border: '1px solid #ccc',
+              boxSizing: 'border-box'
+            }}
+            required
+          />
+        </label>
 
         <label>
           Data de Entrega:
@@ -192,6 +194,38 @@ const CadastroPedido = ({ onCadastrar }) => {
             <option value="Embalagem">Embalagem</option>
           </select>
         </label>
+
+        {/* CAMPO URGENTE MELHORADO */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            margin: '18px 0 18px 0',
+          }}
+        >
+          <input
+            type="checkbox"
+            id="urgente"
+            checked={urgente}
+            onChange={e => setUrgente(e.target.checked)}
+            style={{ width: 22, height: 22, accentColor: 'red', cursor: 'pointer' }}
+          />
+          <label
+            htmlFor="urgente"
+            style={{
+              color: 'red',
+              fontWeight: 'bold',
+              fontSize: '1.1em',
+              cursor: 'pointer',
+              letterSpacing: 1,
+              userSelect: 'none',
+              margin: 0,
+            }}
+          >
+            Marcar como URGENTE
+          </label>
+        </div>
 
         <button type="submit">Cadastrar Pedido</button>
       </form>

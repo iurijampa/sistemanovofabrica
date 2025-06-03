@@ -13,22 +13,6 @@ const parseImagensExtras = (imagensExtras) => {
 
 const ModalEditar = ({ pedido, onClose, onSalvar }) => {
   const [formData, setFormData] = useState({
-  id: pedido.id,
-  pedido: pedido.pedido,
-  cliente: pedido.cliente,
-  descricao: pedido.descricao,
-  setorAtual: pedido.setorAtual,
-  dataEntrega: pedido.dataEntrega.split('T')[0],
-  imagem: pedido.imagem || '',
-  imagensExtras: parseImagensExtras(pedido.imagensExtras),
-});
-
-  const [imagemPrincipalArquivo, setImagemPrincipalArquivo] = useState(null);
-  const [novasImagensExtras, setNovasImagensExtras] = useState([]);
-
-  // Sincroniza formData quando pedido mudar
-  useEffect(() => {
-  setFormData({
     id: pedido.id,
     pedido: pedido.pedido,
     cliente: pedido.cliente,
@@ -38,8 +22,26 @@ const ModalEditar = ({ pedido, onClose, onSalvar }) => {
     imagem: pedido.imagem || '',
     imagensExtras: parseImagensExtras(pedido.imagensExtras),
   });
-  setNovasImagensExtras([]);
-}, [pedido]);
+
+  const [urgente, setUrgente] = useState(!!pedido.urgente); // NOVO
+  const [imagemPrincipalArquivo, setImagemPrincipalArquivo] = useState(null);
+  const [novasImagensExtras, setNovasImagensExtras] = useState([]);
+
+  // Sincroniza formData e urgente quando pedido mudar
+  useEffect(() => {
+    setFormData({
+      id: pedido.id,
+      pedido: pedido.pedido,
+      cliente: pedido.cliente,
+      descricao: pedido.descricao,
+      setorAtual: pedido.setorAtual,
+      dataEntrega: pedido.dataEntrega.split('T')[0],
+      imagem: pedido.imagem || '',
+      imagensExtras: parseImagensExtras(pedido.imagensExtras),
+    });
+    setUrgente(!!pedido.urgente); // NOVO
+    setNovasImagensExtras([]);
+  }, [pedido]);
 
   // Atualiza campos simples do form
   const handleChange = (e) => {
@@ -75,7 +77,7 @@ const ModalEditar = ({ pedido, onClose, onSalvar }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    let atualizacoes = { ...formData };
+    let atualizacoes = { ...formData, urgente }; // <- Inclui urgente
 
     // Upload imagem principal nova
     if (imagemPrincipalArquivo) {
@@ -114,8 +116,8 @@ const ModalEditar = ({ pedido, onClose, onSalvar }) => {
   return (
     <div className="modalOverlay" onClick={onClose}>
       <div className="modalContent" onClick={(e) => e.stopPropagation()}>
-  <button className="fecharModal" onClick={onClose}>×</button>
-  <h2>Editar Pedido</h2>
+        <button className="fecharModal" onClick={onClose}>×</button>
+        <h2>Editar Pedido</h2>
         <form onSubmit={handleSubmit}>
 
           <label>
@@ -215,6 +217,38 @@ const ModalEditar = ({ pedido, onClose, onSalvar }) => {
             <input type="file" multiple accept="image/*" onChange={handleImagensExtrasChange} />
           </label>
           <br />
+
+          {/* Checkbox URGENTE */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              margin: '18px 0 18px 0',
+            }}
+          >
+            <input
+              type="checkbox"
+              id="urgente-edit"
+              checked={urgente}
+              onChange={e => setUrgente(e.target.checked)}
+              style={{ width: 22, height: 22, accentColor: 'red', cursor: 'pointer' }}
+            />
+            <label
+              htmlFor="urgente-edit"
+              style={{
+                color: 'red',
+                fontWeight: 'bold',
+                fontSize: '1.1em',
+                cursor: 'pointer',
+                letterSpacing: 1,
+                userSelect: 'none',
+                margin: 0,
+              }}
+            >
+              Marcar como URGENTE
+            </label>
+          </div>
 
           <button type="submit">Salvar</button>
           <button type="button" onClick={onClose} style={{ marginLeft: '8px' }}>

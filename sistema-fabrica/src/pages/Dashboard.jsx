@@ -234,56 +234,86 @@ const Dashboard = ({
           </tr>
         </thead>
         <tbody>
-          {atividadesOrdenadas.map((a) => (
-            <tr key={a.id}>
-              <td>
-                {a.imagem ? (
-                  <img
-                    src={a.imagem}
-                    alt="Imagem principal"
-                    style={{
-                      width: '60px',
-                      height: '60px',
-                      objectFit: 'cover',
-                      borderRadius: '4px',
-                      marginBottom: '4px',
-                    }}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = 'https://via.placeholder.com/40x40?text=Erro';
-                    }}
-                  />
-                ) : (
-                  <span>Sem imagem</span>
-                )}
+  {atividadesOrdenadas.map((a) => (
+    <tr
+      key={a.id}
+      style={{
+        background: a.urgente ? 'red' : undefined,
+        color: a.urgente ? '#fff' : undefined,
+        fontWeight: a.urgente ? 'bold' : undefined,
+        fontSize: a.urgente ? '1.1em' : undefined,
+        letterSpacing: a.urgente ? 2 : undefined,
+        transition: 'background 0.3s',
+      }}
+    >
+      <td>
+        {a.imagem ? (
+          <img
+            src={a.imagem}
+            alt="Imagem principal"
+            style={{
+              width: '60px',
+              height: '60px',
+              objectFit: 'cover',
+              borderRadius: '4px',
+              marginBottom: '4px',
+            }}
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = 'https://via.placeholder.com/40x40?text=Erro';
+            }}
+          />
+        ) : (
+          <span>Sem imagem</span>
+        )}
 
-                {/* IMAGENS EXTRAS */}
-                {Array.isArray(a.imagensExtras) && a.imagensExtras.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-                    {a.imagensExtras.map((url, i) => (
-                      <img
-                        key={i}
-                        src={url}
-                        alt={`Imagem extra ${i}`}
-                        style={{
-                          width: '40px',
-                          height: '40px',
-                          objectFit: 'cover',
-                          borderRadius: '4px',
-                          border: '1px solid #ccc',
-                        }}
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = 'https://via.placeholder.com/40x40?text=Erro';
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </td>
+        {/* IMAGENS EXTRAS */}
+        {Array.isArray(a.imagensExtras) && a.imagensExtras.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+            {a.imagensExtras.map((url, i) => (
+              <img
+                key={i}
+                src={url}
+                alt={`Imagem extra ${i}`}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  objectFit: 'cover',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc',
+                }}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://via.placeholder.com/40x40?text=Erro';
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </td>
+      <td>{a.pedido}</td>
+      <td>
+        {a.urgente && (
+          <span style={{
+            fontSize: '0.95em',
+            marginRight: 10,
+            background: '#fff3',
+            padding: '2px 12px',
+            borderRadius: 6,
+            verticalAlign: 'middle',
+            display: 'inline-block',
+            marginBottom: 4,
+            marginTop: 2,
+            boxShadow: '0 2px 10px #f001',
+            animation: 'pulseUrgente 1s infinite alternate',
+            color: '#fff',
+          }}>
+            🚨 URGENTE
+          </span>
+        )}
+        <span style={{ verticalAlign: 'middle' }}>{a.cliente}</span>
+      </td>
 
-              <td>{a.pedido}</td>
-              <td>{a.cliente}</td>
               <td>
                 <span className={`badge badge-setor ${badgeColors[a.setorAtual] || ''}`}>
                   {a.setorAtual}
