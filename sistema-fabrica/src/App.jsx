@@ -12,6 +12,8 @@ import somNotificacao from './assets/notificacao.mp3';
 import { supabase } from './supabaseClient';
 import Historico from './pages/Historico';
 import { registrarMovimentacao } from './utils/registrarMovimentacao';
+import Estoque from './pages/Estoque'; // certifique-se de que esse caminho está correto
+
 
 const noop = () => {};
 
@@ -270,66 +272,75 @@ function App() {
         }}
       />
       <main style={{ flex: 1, padding: '20px' }}>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <Dashboard
-                atividades={atividadesFiltradas}
-                onVisualizar={abrirVisualizacao}
-                onAbrirEdicao={abrirEdicao}
-                onEditar={salvarEdicao}
-                onApagar={apagarAtividade}
-                onConcluir={abrirModalConcluirAtividade}
-                usuarioAtual={setorLogado.toLowerCase()}
-              />
-            }
-          />
-          <Route
-            path="/cadastro-pedido"
-            element={
-              normalize(setorLogado) === 'admin' ? (
-                <CadastroPedido onCadastrar={adicionarAtividade} />
-              ) : (
-                <Navigate to="/" />
-              )
-            }
-          />
-          <Route
-            path="/historico"
-            element={
-              <Historico setorUsuario={setorLogado.toLowerCase()} />
-            }
-          />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+  <Routes>
+    <Route
+      path="/"
+      element={
+        <Dashboard
+          atividades={atividadesFiltradas}
+          onVisualizar={abrirVisualizacao}
+          onAbrirEdicao={abrirEdicao}
+          onEditar={salvarEdicao}
+          onApagar={apagarAtividade}
+          onConcluir={abrirModalConcluirAtividade}
+          usuarioAtual={setorLogado.toLowerCase()}
+        />
+      }
+    />
+    <Route
+      path="/cadastro-pedido"
+      element={
+        normalize(setorLogado) === 'admin' ? (
+          <CadastroPedido onCadastrar={adicionarAtividade} />
+        ) : (
+          <Navigate to="/" />
+        )
+      }
+    />
+    <Route
+      path="/historico"
+      element={<Historico setorUsuario={setorLogado.toLowerCase()} />}
+    />
+    <Route
+      path="/estoque"
+      element={
+        normalize(setorLogado) === 'admin' ? (
+          <Estoque />
+        ) : (
+          <Navigate to="/" />
+        )
+      }
+    />
+    <Route path="*" element={<Navigate to="/" />} />
+  </Routes>
 
-        {pedidoVisualizado && (
-          <ModalVisualizar
-            pedido={pedidoVisualizado}
-            onClose={fecharVisualizacao}
-          />
-        )}
+  {pedidoVisualizado && (
+    <ModalVisualizar
+      pedido={pedidoVisualizado}
+      onClose={fecharVisualizacao}
+    />
+  )}
 
-        {pedidoEditando && (
-          <ModalEditar
-            pedido={pedidoEditando}
-            onClose={fecharEdicao}
-            onSalvar={salvarEdicao}
-          />
-        )}
+  {pedidoEditando && (
+    <ModalEditar
+      pedido={pedidoEditando}
+      onClose={fecharEdicao}
+      onSalvar={salvarEdicao}
+    />
+  )}
 
-        {pedidoParaConcluir && (
-          <ModalConcluirAtividade
-            atividade={pedidoParaConcluir}
-            onCancelar={fecharModalConcluirAtividade}
-            onConfirmar={(nome, observacao) => {
-              concluirAtividade(pedidoParaConcluir.id, nome, observacao);
-              fecharModalConcluirAtividade();
-            }}
-          />
-        )}
-      </main>
+  {pedidoParaConcluir && (
+    <ModalConcluirAtividade
+      atividade={pedidoParaConcluir}
+      onCancelar={fecharModalConcluirAtividade}
+      onConfirmar={(nome, observacao) => {
+        concluirAtividade(pedidoParaConcluir.id, nome, observacao);
+        fecharModalConcluirAtividade();
+      }}
+    />
+  )}
+</main>
+
     </div>
   );
 }

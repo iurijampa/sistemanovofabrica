@@ -2,6 +2,26 @@ import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import './CadastroPedido.css';
 
+// Lista de malhas
+const LISTA_MALHAS = [
+  "dryfit",
+  "dry jersie",
+  "helanquinha",
+  "aerodry",
+  "dry tec",
+  "dry solution",
+  "piquet de poliester",
+  "piquet de algodão",
+  "dry manchester",
+  "dry nba",
+  "uv ft50",
+  "helanca colegial",
+  "poliester",
+  "oxford",
+  "tactel",
+  "ribana"
+];
+
 const CadastroPedido = ({ onCadastrar }) => {
   const [pedido, setPedido] = useState('');
   const [cliente, setCliente] = useState('');
@@ -10,7 +30,11 @@ const CadastroPedido = ({ onCadastrar }) => {
   const [descricao, setDescricao] = useState('');
   const [setorAtual, setSetorAtual] = useState('');
   const [dataEntrega, setDataEntrega] = useState('');
-  const [urgente, setUrgente] = useState(false); // NOVO
+  const [urgente, setUrgente] = useState(false);
+
+  // Novos estados internos para estoque
+  const [malha, setMalha] = useState('');
+  const [quantidade, setQuantidade] = useState(1);
 
   const handleAdicionarImagemExtra = (e) => {
     const arquivos = Array.from(e.target.files);
@@ -23,6 +47,30 @@ const CadastroPedido = ({ onCadastrar }) => {
     if (!imagemPrincipal) {
       alert('Selecione a imagem principal');
       return;
+    }
+
+    // NOVO: Atualizar estoque antes de cadastrar pedido
+    if (malha && quantidade > 0) {
+      // Procura a malha no estoque
+      const { data: estoque, error: erroEstoque } = await supabase
+        .from('estoque')
+        .select('id, quantidade')
+        .eq('malha', malha)
+        .single();
+
+      if (erroEstoque || !estoque) {
+        alert('Erro: malha não encontrada no estoque.');
+        return;
+      }
+      if (estoque.quantidade < quantidade) {
+        alert('Estoque insuficiente para essa malha!');
+        return;
+      }
+      // Atualiza a quantidade subtraindo
+      await supabase
+        .from('estoque')
+        .update({ quantidade: estoque.quantidade - quantidade })
+        .eq('id', estoque.id);
     }
 
     // Upload da imagem principal
@@ -58,12 +106,15 @@ const CadastroPedido = ({ onCadastrar }) => {
     const novaAtividade = {
       pedido,
       cliente,
-      imagem: urlPrincipal, // imagem principal
-      imagensExtras: JSON.stringify(urlsExtras), // array das outras imagens
+      imagem: urlPrincipal,
+      imagensExtras: JSON.stringify(urlsExtras),
       descricao,
       setorAtual,
       dataEntrega: new Date(dataEntrega).toISOString(),
-      urgente, // NOVO
+      urgente,
+      // Se quiser salvar essa info no registro da atividade, pode incluir:
+      // malha,
+      // quantidade,
     };
 
     await onCadastrar(novaAtividade);
@@ -77,7 +128,9 @@ const CadastroPedido = ({ onCadastrar }) => {
     setDescricao('');
     setSetorAtual('');
     setDataEntrega('');
-    setUrgente(false); // RESET URGENTE
+    setUrgente(false);
+    setMalha('');
+    setQuantidade(1);
   };
 
   return (
@@ -194,6 +247,34 @@ const CadastroPedido = ({ onCadastrar }) => {
             <option value="Embalagem">Embalagem</option>
           </select>
         </label>
+
+        {/* --- CAMPO INTERNO DE ESTOQUE (agora como dropdown) --- */}
+        <div style={{ margin: '18px 0', padding: '12px', background: '#f7f7f7', borderRadius: 8 }}>
+          <label>
+            Malha (uso interno):
+            <select
+              value={malha}
+              onChange={e => setMalha(e.target.value)}
+              required
+              style={{ marginLeft: 8, minWidth: 180 }}
+            >
+              <option value="">Selecione a malha</option>
+              {LISTA_MALHAS.map((malhaOp) => (
+                <option key={malhaOp} value={malhaOp}>{malhaOp}</option>
+              ))}
+            </select>
+          </label>
+          <label style={{ marginLeft: 16 }}>
+            Quantidade (uso interno):
+            <input
+              type="number"
+              min={1}
+              value={quantidade}
+              onChange={e => setQuantidade(Number(e.target.value))}
+              style={{ marginLeft: 8, width: 60 }}
+            />
+          </label>
+        </div>
 
         {/* CAMPO URGENTE MELHORADO */}
         <div

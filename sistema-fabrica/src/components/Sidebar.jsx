@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import logo from '../assets/logo.png';
-import { FaHome, FaPlus, FaHistory, FaSignOutAlt } from 'react-icons/fa';
+import { FaHome, FaPlus, FaHistory, FaSignOutAlt, FaBoxes } from 'react-icons/fa';
 
 const Sidebar = ({ setorLogado, onLogout }) => {
   const [recolhido, setRecolhido] = useState(false);
   const setorNormalizado = setorLogado?.toLowerCase();
 
   const sidebarWidth = recolhido ? 60 : 200;
-  const buttonOffset = -14; // Fica flutuando sempre do lado direito do sidebar
+  const buttonOffset = -14;
 
   return (
     <div
@@ -107,23 +107,42 @@ const Sidebar = ({ setorLogado, onLogout }) => {
             </Link>
           </li>
           {setorNormalizado === 'admin' && (
-            <li>
-              <Link
-                to="/cadastro-pedido"
-                style={{
-                  color: '#fff',
-                  textDecoration: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '8px 0',
-                  justifyContent: recolhido ? 'center' : 'flex-start',
-                  gap: recolhido ? 0 : 10,
-                }}
-              >
-                <FaPlus size={20} />
-                {!recolhido && <span style={{ marginLeft: 10 }}>Cadastrar Pedido</span>}
-              </Link>
-            </li>
+            <>
+              <li>
+                <Link
+                  to="/cadastro-pedido"
+                  style={{
+                    color: '#fff',
+                    textDecoration: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '8px 0',
+                    justifyContent: recolhido ? 'center' : 'flex-start',
+                    gap: recolhido ? 0 : 10,
+                  }}
+                >
+                  <FaPlus size={20} />
+                  {!recolhido && <span style={{ marginLeft: 10 }}>Cadastrar Pedido</span>}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/estoque"
+                  style={{
+                    color: '#fff',
+                    textDecoration: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '8px 0',
+                    justifyContent: recolhido ? 'center' : 'flex-start',
+                    gap: recolhido ? 0 : 10,
+                  }}
+                >
+                  <FaBoxes size={20} />
+                  {!recolhido && <span style={{ marginLeft: 10 }}>Estoque</span>}
+                </Link>
+              </li>
+            </>
           )}
           <li>
             <Link
