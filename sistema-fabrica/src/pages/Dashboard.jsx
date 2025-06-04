@@ -96,10 +96,15 @@ const Dashboard = ({
   });
 
   const atividadesOrdenadas = [...atividadesFiltradas].sort((a, b) => {
-    const dataA = criarDataLocal(a.dataEntrega);
-    const dataB = criarDataLocal(b.dataEntrega);
-    return dataA - dataB;
-  });
+  // 1º critério: setor "Embalagem" sempre primeiro
+  if (a.setorAtual === 'Embalagem' && b.setorAtual !== 'Embalagem') return -1;
+  if (b.setorAtual === 'Embalagem' && a.setorAtual !== 'Embalagem') return 1;
+  // 2º critério: ordena por data normalmente
+  const dataA = criarDataLocal(a.dataEntrega);
+  const dataB = criarDataLocal(b.dataEntrega);
+  return dataA - dataB;
+});
+
 
   return (
     <div className="dashboard">

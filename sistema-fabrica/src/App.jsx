@@ -15,7 +15,6 @@ import { registrarMovimentacao } from './utils/registrarMovimentacao';
 
 const noop = () => {};
 
-// Lista dos setores em ordem
 const setores = ['Gabarito', 'Impressao', 'Batida', 'Costura', 'Embalagem', 'Finalizado'];
 const proximoSetor = (setorAtual) => {
   const indexAtual = setores.indexOf(setorAtual);
@@ -86,81 +85,71 @@ function App() {
   };
 
   const apagarAtividade = async (pedidoId) => {
-  if (!pedidoId) {
-    alert('Erro: ID do pedido está undefined');
-    return;
-  }
+    if (!pedidoId) {
+      alert('Erro: ID do pedido está undefined');
+      return;
+    }
 
-  // Busca dados da atividade antes de deletar (opcional, se quiser setorOrigem, etc)
-  const { data: atividade } = await supabase
-    .from('atividades')
-    .select('setorAtual, funcionarioEnvio, observacaoEnvio')
-    .eq('id', pedidoId)
-    .single();
+    const { data: atividade } = await supabase
+      .from('atividades')
+      .select('setorAtual, funcionarioEnvio, observacaoEnvio')
+      .eq('id', pedidoId)
+      .single();
 
-  // 1. Registra movimentação ANTES de deletar!
-  await registrarMovimentacao({
-    pedidoId,
-    setorOrigem: atividade?.setorAtual || usuario.setor,
-    setorDestino: null,
-    tipo: 'apagou',
-    funcionarioEnvio: atividade?.funcionarioEnvio || '',
-    observacaoEnvio: atividade?.observacaoEnvio || '',
-  });
-
-  // 2. Agora pode deletar
-  const { error } = await supabase.from('atividades').delete().eq('id', pedidoId);
-
-  if (error) {
-    console.error('Erro ao apagar atividade:', error);
-    alert('Erro ao apagar: ' + error.message);
-  } else {
-    await carregarAtividades();
-    alert('Atividade apagada com sucesso!');
-  }
-};
-
- const salvarEdicao = async (pedidoAtualizado) => {
-  if (!pedidoAtualizado.id) {
-    alert('Erro: pedidoAtualizado.id está indefinido');
-    return;
-  }
-
-
-  const { error } = await supabase
-    .from('atividades')
-    .update(pedidoAtualizado)
-    .eq('id', pedidoAtualizado.id);
-
-  // Adicione este trecho:
-  const { data: ver, error: errVer } = await supabase
-    .from('atividades')
-    .select('id, urgente')
-    .eq('id', pedidoAtualizado.id)
-    .single();
-  console.log('Verificando após update:', ver, errVer);
-
-  if (error) {
-    console.error('Erro ao editar atividade:', error);
-  } else {
     await registrarMovimentacao({
-      pedidoId: pedidoAtualizado.id,
-      setorOrigem: usuario.setor,
-      setorDestino: pedidoAtualizado.setorAtual,
-      tipo: 'editou',
+      pedidoId,
+      setorOrigem: atividade?.setorAtual || usuario.setor,
+      setorDestino: null,
+      tipo: 'apagou',
+      funcionarioEnvio: atividade?.funcionarioEnvio || '',
+      observacaoEnvio: atividade?.observacaoEnvio || '',
     });
 
-    await carregarAtividades();
-    fecharEdicao();
-  }
-};
+    const { error } = await supabase.from('atividades').delete().eq('id', pedidoId);
 
+    if (error) {
+      console.error('Erro ao apagar atividade:', error);
+      alert('Erro ao apagar: ' + error.message);
+    } else {
+      await carregarAtividades();
+      alert('Atividade apagada com sucesso!');
+    }
+  };
 
+  const salvarEdicao = async (pedidoAtualizado) => {
+    if (!pedidoAtualizado.id) {
+      alert('Erro: pedidoAtualizado.id está indefinido');
+      return;
+    }
 
+    const { error } = await supabase
+      .from('atividades')
+      .update(pedidoAtualizado)
+      .eq('id', pedidoAtualizado.id);
 
-  // ATENÇÃO: Aqui está o novo fluxo com avanço de setor!
+    const { data: ver, error: errVer } = await supabase
+      .from('atividades')
+      .select('id, urgente')
+      .eq('id', pedidoAtualizado.id)
+      .single();
+    console.log('Verificando após update:', ver, errVer);
+
+    if (error) {
+      console.error('Erro ao editar atividade:', error);
+    } else {
+      await registrarMovimentacao({
+        pedidoId: pedidoAtualizado.id,
+        setorOrigem: usuario.setor,
+        setorDestino: pedidoAtualizado.setorAtual,
+        tipo: 'editou',
+      });
+
+      await carregarAtividades();
+      fecharEdicao();
+    }
+  };
+
   const concluirAtividade = async (pedidoId, nomeFuncionario, observacao) => {
-    // Busca atividade atual para saber o setor
     const { data: atividadeAtual, error: fetchError } = await supabase
       .from('atividades')
       .select('*')
@@ -174,9 +163,7 @@ function App() {
 
     const setorAnterior = atividadeAtual.setorAtual;
     const novoSetor = proximoSetor(setorAnterior);
-  
 
-    // Atualiza para o novo setor, nome, observação e data de envio
     const { error } = await supabase
       .from('atividades')
       .update({
@@ -189,7 +176,6 @@ function App() {
       .eq('id', pedidoId);
 
     if (!error) {
-      // Busca valores salvos (garante que vai registrar o que realmente ficou no banco)
       const { data: atividadeAtualizada } = await supabase
         .from('atividades')
         .select('funcionarioEnvio, observacaoEnvio')
@@ -219,16 +205,16 @@ function App() {
   const normalize = (str) =>
     str?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-  const setorUsuario = normalize(usuario?.setor || 'admin');
+  const setorLogado = usuario?.setor || 'admin';
 
+  // Função de realtime otimizada!
   const handleNovaAtividade = usuario
     ? (novaAtividade) => {
         const setorAtividade = normalize(novaAtividade.setorAtual);
 
-        if (setorUsuario === 'admin' || setorAtividade === setorUsuario) {
+        if (normalize(setorLogado) === 'admin' || setorAtividade === normalize(setorLogado)) {
           setAtividades((prev) => {
             const jaExiste = prev.some((a) => a.id === novaAtividade.id);
-
             if (jaExiste) {
               return prev.map((a) =>
                 a.id === novaAtividade.id ? novaAtividade : a
@@ -238,7 +224,7 @@ function App() {
             }
           });
 
-          if (setorUsuario !== 'admin' && setorAtividade === setorUsuario) {
+          if (normalize(setorLogado) !== 'admin' && setorAtividade === normalize(setorLogado)) {
             try {
               audio.current.currentTime = 0;
               audio.current.play().catch(() => {});
@@ -254,13 +240,17 @@ function App() {
     setAtividades((prev) => prev.filter((a) => a.id !== idRemovido));
   };
 
-  useRealtimeAtividades(handleNovaAtividade, handleRemoverAtividade);
+  // >>>>> ALTERAÇÃO PRINCIPAL: Passando o setor logado para o hook!
+  useRealtimeAtividades(
+    handleNovaAtividade,
+    handleRemoverAtividade,
+    normalize(setorLogado) === 'admin' ? null : setorLogado
+  );
 
   if (!usuario) {
     return <LoginEmailSenha onLogin={setUsuario} />;
   }
 
-  const setorLogado = usuario?.setor || 'admin';
   const atividadesFiltradas =
     normalize(setorLogado) === 'admin'
       ? atividades
@@ -270,7 +260,7 @@ function App() {
             : false
         );
 
-    return (
+  return (
     <div style={{ display: 'flex' }}>
       <Sidebar
         setorLogado={setorLogado}
