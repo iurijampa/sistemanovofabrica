@@ -1,27 +1,57 @@
+// src/pages/Estoque.jsx
+
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import ModalAlertaEstoque from '../components/ModalAlertaEstoque';
+
+// Limites personalizados para cada malha (tudo em maiúsculo)
+const LIMITES_ALERTA = {
+  'AERODRY': 200,
+  'DRYFIT': 500,
+  'DRY JERSIE': 500,
+  'DRY MANCHESTER': 200,
+  'DRY NBA': 100,
+  'DRY SOLUTION': 200,
+  'DRY TEC': 100,
+  'HELANCA COLEGIAL': 50,
+  'HELANQUINHA': 600,
+  'OXFORD': 100,
+  'PIQUET ALGODÃO': 600,
+  'PIQUET DE POLIESTER': 100,
+  'POLIESTER': 100,
+  'RIBANA': 600,
+  'TACTEL': 100,
+  'UV FT50': 150
+};
 
 const Estoque = () => {
   const [estoque, setEstoque] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editando, setEditando] = useState(null);
   const [qtdTemp, setQtdTemp] = useState(0);
-  const [alertaEstoque, setAlertaEstoque] = useState([]);
+  const [showAlerta, setShowAlerta] = useState(false);
+  const [baixoEstoque, setBaixoEstoque] = useState([]);
 
-  // Buscar estoques do banco ao carregar
+  // Para evitar alertas repetidos ao editar sem atualizar o estoque
+  const alertadosRef = useRef(new Set());
+
   useEffect(() => {
     buscarEstoque();
     // eslint-disable-next-line
   }, []);
 
-  // Checa sempre que atualizar estoque
   useEffect(() => {
     if (!loading && estoque.length > 0) {
-      const baixo = estoque.filter(item => item.quantidade <= 600);
-      setAlertaEstoque(baixo);
+      const emAlerta = estoque.filter((item) => {
+        const nome = item.malha?.toUpperCase();
+        const limite = LIMITES_ALERTA[nome];
+        return limite !== undefined && item.quantidade <= limite;
+      });
+      setBaixoEstoque(emAlerta);
+      setShowAlerta(emAlerta.length > 0);
     } else {
-      setAlertaEstoque([]);
+      setShowAlerta(false);
+      setBaixoEstoque([]);
     }
   }, [estoque, loading]);
 
@@ -34,6 +64,7 @@ const Estoque = () => {
 
     if (!error) setEstoque(data);
     setLoading(false);
+    alertadosRef.current.clear();
   }
 
   function editarLinha(id, quantidadeAtual) {
@@ -61,15 +92,9 @@ const Estoque = () => {
       background: '#f8fafc',
       padding: 32,
       borderRadius: 16,
-      boxShadow: '0 8px 32px #1565c022, 0 1.5px 5px #1565c044'
+      boxShadow: '0 8px 32px #1565c022, 0 1.5px 5px #1565c044',
+      position: 'relative'
     }}>
-      {/* ALERTA DE ESTOQUE */}
-      {alertaEstoque.length > 0 && (
-        <ModalAlertaEstoque
-          baixoEstoque={alertaEstoque}
-          onClose={() => setAlertaEstoque([])}
-        />
-      )}
       <h2 style={{
         fontWeight: 700,
         fontSize: 24,
@@ -79,10 +104,10 @@ const Estoque = () => {
       }}>Controle de Estoque</h2>
       {loading && <p>Carregando...</p>}
       {!loading && estoque.length === 0 && (
-        <p style={{color:'#b71c1c', fontWeight:500}}>Estoque vazio.<br/>Cadastre as malhas na tabela "estoque" do Supabase.</p>
+        <p style={{ color: '#b71c1c', fontWeight: 500 }}>Estoque vazio.<br />Cadastre as malhas na tabela "estoque" do Supabase.</p>
       )}
       {!loading && estoque.length > 0 && (
-        <div style={{overflowX:'auto'}}>
+        <div style={{ overflowX: 'auto' }}>
           <table style={{
             width: '100%',
             borderCollapse: 'separate',
@@ -102,113 +127,128 @@ const Estoque = () => {
                   textAlign: 'center', padding: 12, fontWeight: 600,
                   fontSize: 16, color: '#1976d2', borderBottom: '2px solid #bbdefb'
                 }}>Quantidade</th>
-                <th style={{borderBottom: '2px solid #bbdefb'}}></th>
+                <th style={{ borderBottom: '2px solid #bbdefb' }}></th>
               </tr>
             </thead>
             <tbody>
-              {estoque.map((item) => (
-                <tr
-                  key={item.id}
-                  style={{
-                    background:
-                      item.quantidade < 500
-                        ? '#ffebee'
-                        : item.quantidade < 1000
-                          ? '#fffde7'
-                          : '#e3f9e5',
-                    transition: 'background 0.2s'
-                  }}
-                >
-                  <td style={{ padding: 10, fontWeight: 500 }}>
-                    {item.malha?.toUpperCase()}
-                  </td>
-                  <td style={{ padding: 10, textAlign: 'center' }}>
-                    {editando === item.id ? (
-                      <input
-                        type="number"
-                        min={0}
-                        value={qtdTemp}
-                        onChange={e => setQtdTemp(Number(e.target.value))}
-                        style={{
-                          width: 70,
-                          fontSize: 15,
-                          border: '1px solid #90caf9',
-                          borderRadius: 5,
-                          padding: 4,
-                        }}
-                        autoFocus
-                      />
-                    ) : (
-                      <span style={{
-                        display: 'inline-block',
-                        fontSize: 16,
-                        color:
-                          item.quantidade < 500
-                            ? '#b71c1c'
-                            : item.quantidade < 1000
-                              ? '#bfa900'
-                              : '#2e7d32',
-                        borderRadius: 6,
-                        padding: '3px 12px',
-                        fontWeight: 700
-                      }}>
-                        {item.quantidade}
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ padding: 10, textAlign: 'center', minWidth: 90 }}>
-                    {editando === item.id ? (
-                      <>
-                        <button
-                          onClick={() => salvarQuantidade(item.id)}
+              {estoque.map((item) => {
+                const nome = item.malha?.toUpperCase();
+                const limite = LIMITES_ALERTA[nome];
+                let bg = '#e3f9e5';
+                if (limite !== undefined) {
+                  if (item.quantidade <= limite) {
+                    bg = '#ffebee';
+                  } else if (item.quantidade <= (limite * 1.5)) {
+                    bg = '#fffde7';
+                  }
+                }
+                return (
+                  <tr
+                    key={item.id}
+                    style={{
+                      background: bg,
+                      transition: 'background 0.2s'
+                    }}
+                  >
+                    <td style={{ padding: 10, fontWeight: 500 }}>
+                      {nome}
+                    </td>
+                    <td style={{ padding: 10, textAlign: 'center' }}>
+                      {editando === item.id ? (
+                        <input
+                          type="number"
+                          min={0}
+                          value={qtdTemp}
+                          onChange={e => setQtdTemp(Number(e.target.value))}
                           style={{
-                            marginRight: 7,
-                            background: '#43a047',
+                            width: 70,
+                            fontSize: 15,
+                            border: '1px solid #90caf9',
+                            borderRadius: 5,
+                            padding: 4,
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span style={{
+                          display: 'inline-block',
+                          fontSize: 16,
+                          color:
+                            limite !== undefined && item.quantidade <= limite
+                              ? '#b71c1c'
+                              : limite !== undefined && item.quantidade <= (limite * 1.5)
+                                ? '#bfa900'
+                                : '#2e7d32',
+                          borderRadius: 6,
+                          padding: '3px 12px',
+                          fontWeight: 700
+                        }}>
+                          {item.quantidade}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: 10, textAlign: 'center', minWidth: 90 }}>
+                      {editando === item.id ? (
+                        <>
+                          <button
+                            onClick={() => salvarQuantidade(item.id)}
+                            style={{
+                              marginRight: 7,
+                              background: '#43a047',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: 6,
+                              padding: '6px 12px',
+                              fontWeight: 600,
+                              fontSize: 15,
+                              cursor: 'pointer',
+                              transition: 'background .15s'
+                            }}>Salvar</button>
+                          <button
+                            onClick={() => setEditando(null)}
+                            style={{
+                              background: '#eee',
+                              color: '#888',
+                              border: 'none',
+                              borderRadius: 6,
+                              padding: '6px 10px',
+                              fontWeight: 500,
+                              fontSize: 14,
+                              cursor: 'pointer'
+                            }}>Cancelar</button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => editarLinha(item.id, item.quantidade)}
+                          style={{
+                            background: '#1976d2',
                             color: '#fff',
                             border: 'none',
                             borderRadius: 6,
-                            padding: '6px 12px',
+                            padding: '6px 16px',
                             fontWeight: 600,
                             fontSize: 15,
                             cursor: 'pointer',
+                            boxShadow: '0 2px 8px #1565c013',
                             transition: 'background .15s'
-                          }}>Salvar</button>
-                        <button
-                          onClick={() => setEditando(null)}
-                          style={{
-                            background: '#eee',
-                            color: '#888',
-                            border: 'none',
-                            borderRadius: 6,
-                            padding: '6px 10px',
-                            fontWeight: 500,
-                            fontSize: 14,
-                            cursor: 'pointer'
-                          }}>Cancelar</button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => editarLinha(item.id, item.quantidade)}
-                        style={{
-                          background: '#1976d2',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: 6,
-                          padding: '6px 16px',
-                          fontWeight: 600,
-                          fontSize: 15,
-                          cursor: 'pointer',
-                          boxShadow: '0 2px 8px #1565c013',
-                          transition: 'background .15s'
-                        }}>Editar</button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                          }}>Editar</button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
+      {showAlerta && baixoEstoque.length > 0 && (
+  <ModalAlertaEstoque
+    baixoEstoque={baixoEstoque}
+    onClose={() => setShowAlerta(false)}
+    limites={LIMITES_ALERTA}
+  />
+)}
+
     </div>
   );
 };

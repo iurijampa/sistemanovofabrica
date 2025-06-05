@@ -13,7 +13,27 @@ import { supabase } from './supabaseClient';
 import Historico from './pages/Historico';
 import { registrarMovimentacao } from './utils/registrarMovimentacao';
 import Estoque from './pages/Estoque';
-import ModalAlertaEstoque from './components/ModalAlertaEstoque'; // NOVO
+import ModalAlertaEstoque from './components/ModalAlertaEstoque';
+
+// Limites personalizados para cada malha (tudo em maiúsculo)
+const LIMITES_ALERTA = {
+  'AERODRY': 200,
+  'DRYFIT': 500,
+  'DRY JERSIE': 500,
+  'DRY MANCHESTER': 200,
+  'DRY NBA': 100,
+  'DRY SOLUTION': 200,
+  'DRY TEC': 100,
+  'HELANCA COLEGIAL': 50,
+  'HELANQUINHA': 600,
+  'OXFORD': 100,
+  'PIQUET ALGODÃO': 600,
+  'PIQUET DE POLIESTER': 100,
+  'POLIESTER': 100,
+  'RIBANA': 600,
+  'TACTEL': 100,
+  'UV FT50': 150
+};
 
 const noop = () => {};
 
@@ -33,7 +53,7 @@ function App() {
   const [pedidoEditando, setPedidoEditando] = useState(null);
   const [pedidoParaConcluir, setPedidoParaConcluir] = useState(null);
 
-  const [alertaEstoque, setAlertaEstoque] = useState([]); // NOVO
+  const [alertaEstoque, setAlertaEstoque] = useState([]); // ALERTA GLOBAL
 
   const navigate = useNavigate();
   const audio = useRef(new Audio(somNotificacao));
@@ -51,13 +71,17 @@ function App() {
     }
   };
 
-  // Checar estoque baixo
+  // Checar estoque baixo (usando limites personalizados)
   async function verificarEstoqueBaixo() {
     const { data, error } = await supabase
       .from('estoque')
       .select('*');
     if (!error && data) {
-      const baixo = data.filter(item => item.quantidade <= 600);
+      const baixo = data.filter(item => {
+        const nome = item.malha?.toUpperCase();
+        const limite = LIMITES_ALERTA[nome];
+        return limite !== undefined && item.quantidade <= limite;
+      });
       setAlertaEstoque(baixo);
     }
   }
@@ -99,7 +123,7 @@ function App() {
       });
 
       // Checar estoque baixo depois do cadastro de pedido
-      await verificarEstoqueBaixo(); // NOVO
+      await verificarEstoqueBaixo();
 
       await carregarAtividades();
       navigate('/');
@@ -287,6 +311,7 @@ function App() {
         <ModalAlertaEstoque
           baixoEstoque={alertaEstoque}
           onClose={() => setAlertaEstoque([])}
+          limites={LIMITES_ALERTA}
         />
       )}
       <Sidebar

@@ -1,6 +1,7 @@
 import React from 'react';
 
-const ModalAlertaEstoque = ({ baixoEstoque, onClose }) => {
+// Recebe também o objeto de limites para personalizar a mensagem
+const ModalAlertaEstoque = ({ baixoEstoque, onClose, limites }) => {
   if (!baixoEstoque || baixoEstoque.length === 0) return null;
 
   return (
@@ -34,14 +35,21 @@ const ModalAlertaEstoque = ({ baixoEstoque, onClose }) => {
         </h2>
         <div>
           <p style={{ fontWeight: 600, marginBottom: 10 }}>
-            Atenção! O estoque das seguintes malhas está abaixo de 600 unidades:
+            Atenção! O estoque das seguintes malhas está abaixo do limite configurado:
           </p>
           <ul style={{ paddingLeft: 18, color: '#b71c1c', fontWeight: 700 }}>
-            {baixoEstoque.map((item) => (
-              <li key={item.id} style={{ marginBottom: 5 }}>
-                {item.malha.toUpperCase()}: <span style={{ fontWeight: 800 }}>{item.quantidade}</span> unidades
-              </li>
-            ))}
+            {baixoEstoque.map((item) => {
+              const nome = item.malha?.toUpperCase();
+              const limite = limites?.[nome] || 600; // fallback 600
+              return (
+                <li key={item.id} style={{ marginBottom: 5 }}>
+                  {nome}: <span style={{ fontWeight: 800 }}>{item.quantidade}</span> unidades
+                  <span style={{ color: "#555", fontWeight: 400, fontSize: 13, marginLeft: 6 }}>
+                    (limite: {limite})
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </div>
