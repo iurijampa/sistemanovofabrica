@@ -49,7 +49,7 @@ const CadastroPedido = ({ onCadastrar }) => {
       return;
     }
 
-    // NOVO: Atualizar estoque antes de cadastrar pedido
+    // Atualizar estoque antes de cadastrar pedido
     if (malha && quantidade > 0) {
       // Procura a malha no estoque
       const { data: estoque, error: erroEstoque } = await supabase
@@ -248,7 +248,7 @@ const CadastroPedido = ({ onCadastrar }) => {
           </select>
         </label>
 
-        {/* --- CAMPO INTERNO DE ESTOQUE (agora como dropdown) --- */}
+        {/* --- CAMPO INTERNO DE ESTOQUE (agora como dropdown, nomes maiúsculo) --- */}
         <div style={{ margin: '18px 0', padding: '12px', background: '#f7f7f7', borderRadius: 8 }}>
           <label>
             Malha (uso interno):
@@ -260,7 +260,7 @@ const CadastroPedido = ({ onCadastrar }) => {
             >
               <option value="">Selecione a malha</option>
               {LISTA_MALHAS.map((malhaOp) => (
-                <option key={malhaOp} value={malhaOp}>{malhaOp}</option>
+                <option key={malhaOp} value={malhaOp}>{malhaOp.toUpperCase()}</option>
               ))}
             </select>
           </label>

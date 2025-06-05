@@ -12,8 +12,8 @@ import somNotificacao from './assets/notificacao.mp3';
 import { supabase } from './supabaseClient';
 import Historico from './pages/Historico';
 import { registrarMovimentacao } from './utils/registrarMovimentacao';
-import Estoque from './pages/Estoque'; // certifique-se de que esse caminho está correto
-
+import Estoque from './pages/Estoque';
+import ModalAlertaEstoque from './components/ModalAlertaEstoque'; // NOVO
 
 const noop = () => {};
 
@@ -33,6 +33,8 @@ function App() {
   const [pedidoEditando, setPedidoEditando] = useState(null);
   const [pedidoParaConcluir, setPedidoParaConcluir] = useState(null);
 
+  const [alertaEstoque, setAlertaEstoque] = useState([]); // NOVO
+
   const navigate = useNavigate();
   const audio = useRef(new Audio(somNotificacao));
 
@@ -49,6 +51,17 @@ function App() {
     }
   };
 
+  // Checar estoque baixo
+  async function verificarEstoqueBaixo() {
+    const { data, error } = await supabase
+      .from('estoque')
+      .select('*');
+    if (!error && data) {
+      const baixo = data.filter(item => item.quantidade <= 600);
+      setAlertaEstoque(baixo);
+    }
+  }
+
   useEffect(() => {
     const usuarioSalvo = localStorage.getItem('usuario');
     if (usuarioSalvo) {
@@ -60,7 +73,11 @@ function App() {
   useEffect(() => {
     if (usuario) {
       carregarAtividades();
+      if (normalize(setorLogado) === 'admin') {
+        verificarEstoqueBaixo();
+      }
     }
+    // eslint-disable-next-line
   }, [usuario]);
 
   const adicionarAtividade = async (novaAtividade) => {
@@ -80,6 +97,9 @@ function App() {
         setorDestino: novaAtividade.setorAtual,
         tipo: 'cadastrou',
       });
+
+      // Checar estoque baixo depois do cadastro de pedido
+      await verificarEstoqueBaixo(); // NOVO
 
       await carregarAtividades();
       navigate('/');
@@ -242,7 +262,6 @@ function App() {
     setAtividades((prev) => prev.filter((a) => a.id !== idRemovido));
   };
 
-  // >>>>> ALTERAÇÃO PRINCIPAL: Passando o setor logado para o hook!
   useRealtimeAtividades(
     handleNovaAtividade,
     handleRemoverAtividade,
@@ -264,6 +283,12 @@ function App() {
 
   return (
     <div style={{ display: 'flex' }}>
+      {normalize(setorLogado) === 'admin' && alertaEstoque.length > 0 && (
+        <ModalAlertaEstoque
+          baixoEstoque={alertaEstoque}
+          onClose={() => setAlertaEstoque([])}
+        />
+      )}
       <Sidebar
         setorLogado={setorLogado}
         onLogout={async () => {
@@ -272,75 +297,74 @@ function App() {
         }}
       />
       <main style={{ flex: 1, padding: '20px' }}>
-  <Routes>
-    <Route
-      path="/"
-      element={
-        <Dashboard
-          atividades={atividadesFiltradas}
-          onVisualizar={abrirVisualizacao}
-          onAbrirEdicao={abrirEdicao}
-          onEditar={salvarEdicao}
-          onApagar={apagarAtividade}
-          onConcluir={abrirModalConcluirAtividade}
-          usuarioAtual={setorLogado.toLowerCase()}
-        />
-      }
-    />
-    <Route
-      path="/cadastro-pedido"
-      element={
-        normalize(setorLogado) === 'admin' ? (
-          <CadastroPedido onCadastrar={adicionarAtividade} />
-        ) : (
-          <Navigate to="/" />
-        )
-      }
-    />
-    <Route
-      path="/historico"
-      element={<Historico setorUsuario={setorLogado.toLowerCase()} />}
-    />
-    <Route
-      path="/estoque"
-      element={
-        normalize(setorLogado) === 'admin' ? (
-          <Estoque />
-        ) : (
-          <Navigate to="/" />
-        )
-      }
-    />
-    <Route path="*" element={<Navigate to="/" />} />
-  </Routes>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <Dashboard
+                atividades={atividadesFiltradas}
+                onVisualizar={abrirVisualizacao}
+                onAbrirEdicao={abrirEdicao}
+                onEditar={salvarEdicao}
+                onApagar={apagarAtividade}
+                onConcluir={abrirModalConcluirAtividade}
+                usuarioAtual={setorLogado.toLowerCase()}
+              />
+            }
+          />
+          <Route
+            path="/cadastro-pedido"
+            element={
+              normalize(setorLogado) === 'admin' ? (
+                <CadastroPedido onCadastrar={adicionarAtividade} />
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
+          <Route
+            path="/historico"
+            element={<Historico setorUsuario={setorLogado.toLowerCase()} />}
+          />
+          <Route
+            path="/estoque"
+            element={
+              normalize(setorLogado) === 'admin' ? (
+                <Estoque />
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
 
-  {pedidoVisualizado && (
-    <ModalVisualizar
-      pedido={pedidoVisualizado}
-      onClose={fecharVisualizacao}
-    />
-  )}
+        {pedidoVisualizado && (
+          <ModalVisualizar
+            pedido={pedidoVisualizado}
+            onClose={fecharVisualizacao}
+          />
+        )}
 
-  {pedidoEditando && (
-    <ModalEditar
-      pedido={pedidoEditando}
-      onClose={fecharEdicao}
-      onSalvar={salvarEdicao}
-    />
-  )}
+        {pedidoEditando && (
+          <ModalEditar
+            pedido={pedidoEditando}
+            onClose={fecharEdicao}
+            onSalvar={salvarEdicao}
+          />
+        )}
 
-  {pedidoParaConcluir && (
-    <ModalConcluirAtividade
-      atividade={pedidoParaConcluir}
-      onCancelar={fecharModalConcluirAtividade}
-      onConfirmar={(nome, observacao) => {
-        concluirAtividade(pedidoParaConcluir.id, nome, observacao);
-        fecharModalConcluirAtividade();
-      }}
-    />
-  )}
-</main>
-
+        {pedidoParaConcluir && (
+          <ModalConcluirAtividade
+            atividade={pedidoParaConcluir}
+            onCancelar={fecharModalConcluirAtividade}
+            onConfirmar={(nome, observacao) => {
+              concluirAtividade(pedidoParaConcluir.id, nome, observacao);
+              fecharModalConcluirAtividade();
+            }}
+          />
+        )}
+      </main>
     </div>
   );
 }
