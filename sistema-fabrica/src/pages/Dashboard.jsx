@@ -19,13 +19,16 @@ const badgeColors = {
   Finalizado: 'gray',
 };
 
+const setoresComuns = ['gabarito', 'impressao', 'batida', 'costura', 'embalagem'];
+
 const Dashboard = ({
   atividades,
   onVisualizar,
   onAbrirEdicao,
-  onEditar,         // Só é usado se quiser em algum botão extra
+  onEditar,
   onApagar,
   onConcluir,
+  onRetornar,
   usuarioAtual,
 }) => {
   const criarDataLocal = (dataStr) => {
@@ -95,7 +98,13 @@ const Dashboard = ({
     );
   });
 
+  // AGORA ORDENA: retornados sempre primeiro!
   const atividadesOrdenadas = [...atividadesFiltradas].sort((a, b) => {
+  // PARA OS SETORES NORMAIS: retornados no topo
+  if (!isAdmin) {
+    if (a.statusRetorno && !b.statusRetorno) return -1;
+    if (!a.statusRetorno && b.statusRetorno) return 1;
+  }
   // 1º critério: setor "Embalagem" sempre primeiro
   if (a.setorAtual === 'Embalagem' && b.setorAtual !== 'Embalagem') return -1;
   if (b.setorAtual === 'Embalagem' && a.setorAtual !== 'Embalagem') return 1;
@@ -105,6 +114,16 @@ const Dashboard = ({
   return dataA - dataB;
 });
 
+
+  const deveMostrarBotaoRetornar = (setor, usuarioAtual) => {
+    // Só mostra para setores comuns, nunca para admin, nunca para "gabarito" nem "finalizado"
+    return (
+      !isAdmin &&
+      setoresComuns.includes(usuarioAtual) &&
+      setor.toLowerCase() !== 'gabarito' &&
+      setor.toLowerCase() !== 'finalizado'
+    );
+  };
 
   return (
     <div className="dashboard">
@@ -200,9 +219,13 @@ const Dashboard = ({
             <tr
               key={a.id}
               style={{
-                background: a.urgente ? 'red' : undefined,
+                background: a.statusRetorno
+                  ? '#fff8b0'
+                  : a.urgente
+                  ? 'red'
+                  : undefined,
                 color: a.urgente ? '#fff' : undefined,
-                fontWeight: a.urgente ? 'bold' : undefined,
+                fontWeight: a.urgente || a.statusRetorno ? 'bold' : undefined,
                 fontSize: a.urgente ? '1.1em' : undefined,
                 letterSpacing: a.urgente ? 2 : undefined,
                 transition: 'background 0.3s',
@@ -254,6 +277,19 @@ const Dashboard = ({
               </td>
               <td>{a.pedido}</td>
               <td>
+                {a.statusRetorno && (
+                  <span style={{
+                    background: '#e00',
+                    color: '#fff',
+                    borderRadius: 5,
+                    padding: '2px 6px',
+                    marginRight: 6,
+                    fontSize: '0.9em',
+                    letterSpacing: 1,
+                  }}>
+                    RETORNADO
+                  </span>
+                )}
                 {a.urgente && (
                   <span style={{
                     fontSize: '0.95em',
@@ -322,6 +358,17 @@ const Dashboard = ({
                       🗑️
                     </button>
                   </>
+                )}
+
+                {/* Botão RETORNAR (só para setores comuns, exceto gabarito e finalizado) */}
+                {deveMostrarBotaoRetornar(a.setorAtual, usuarioAtual) && (
+                  <button
+                    title="Retornar para o setor anterior"
+                    onClick={() => onRetornar(a)}
+                    style={{ marginLeft: '8px', marginRight: '8px' }}
+                  >
+                    🔙
+                  </button>
                 )}
 
                 {/* Botão concluir para enviar ao próximo setor */}

@@ -6,6 +6,7 @@ import CadastroPedido from './pages/CadastroPedido';
 import ModalVisualizar from './components/ModalVisualizar';
 import ModalEditar from './components/ModalEditar';
 import ModalConcluirAtividade from './components/ModalConcluirAtividade';
+import ModalRetornarAtividade from './components/ModalRetornarAtividade'; // <-- NOVO
 import LoginEmailSenha from './components/LoginEmailSenha';
 import useRealtimeAtividades from './hooks/useRealtimeAtividades';
 import somNotificacao from './assets/notificacao.mp3';
@@ -15,7 +16,6 @@ import { registrarMovimentacao } from './utils/registrarMovimentacao';
 import Estoque from './pages/Estoque';
 import ModalAlertaEstoque from './components/ModalAlertaEstoque';
 
-// Limites personalizados para cada malha (tudo em maiúsculo)
 const LIMITES_ALERTA = {
   'AERODRY': 200,
   'DRYFIT': 500,
@@ -45,6 +45,13 @@ const proximoSetor = (setorAtual) => {
   }
   return setores[indexAtual + 1];
 };
+const setorAnterior = (setorAtual) => {
+  const indexAtual = setores.indexOf(setorAtual);
+  if (indexAtual <= 0) {
+    return setorAtual;
+  }
+  return setores[indexAtual - 1];
+};
 
 function App() {
   const [usuario, setUsuario] = useState(null);
@@ -52,8 +59,9 @@ function App() {
   const [pedidoVisualizado, setPedidoVisualizado] = useState(null);
   const [pedidoEditando, setPedidoEditando] = useState(null);
   const [pedidoParaConcluir, setPedidoParaConcluir] = useState(null);
+  const [pedidoParaRetornar, setPedidoParaRetornar] = useState(null); // <-- NOVO
 
-  const [alertaEstoque, setAlertaEstoque] = useState([]); // ALERTA GLOBAL
+  const [alertaEstoque, setAlertaEstoque] = useState([]);
 
   const navigate = useNavigate();
   const audio = useRef(new Audio(somNotificacao));
@@ -71,7 +79,6 @@ function App() {
     }
   };
 
-  // Checar estoque baixo (usando limites personalizados)
   async function verificarEstoqueBaixo() {
     const { data, error } = await supabase
       .from('estoque')
@@ -122,7 +129,6 @@ function App() {
         tipo: 'cadastrou',
       });
 
-      // Checar estoque baixo depois do cadastro de pedido
       await verificarEstoqueBaixo();
 
       await carregarAtividades();
@@ -196,50 +202,109 @@ function App() {
   };
 
   const concluirAtividade = async (pedidoId, nomeFuncionario, observacao) => {
-    const { data: atividadeAtual, error: fetchError } = await supabase
+  const { data: atividadeAtual, error: fetchError } = await supabase
+    .from('atividades')
+    .select('*')
+    .eq('id', pedidoId)
+    .single();
+
+  if (fetchError || !atividadeAtual) {
+    alert('Erro ao buscar a atividade!');
+    return;
+  }
+
+  const setorAnteriorVal = atividadeAtual.setorAtual;
+  const novoSetor = proximoSetor(setorAnteriorVal);
+
+  const { error } = await supabase
+    .from('atividades')
+    .update({
+      status: novoSetor === 'Finalizado' ? 'concluido' : 'pendente',
+      setorAtual: novoSetor,
+      funcionarioEnvio: nomeFuncionario,
+      observacaoEnvio: observacao,
+      dataEnvio: new Date().toISOString(),
+      statusRetorno: false, // <-- Limpa destaque ao concluir
+    })
+    .eq('id', pedidoId);
+
+  if (!error) {
+    const { data: atividadeAtualizada } = await supabase
       .from('atividades')
-      .select('*')
+      .select('funcionarioEnvio, observacaoEnvio')
       .eq('id', pedidoId)
       .single();
 
-    if (fetchError || !atividadeAtual) {
-      alert('Erro ao buscar a atividade!');
-      return;
-    }
+    await registrarMovimentacao({
+      pedidoId,
+      setorOrigem: setorAnteriorVal,
+      setorDestino: novoSetor,
+      tipo: 'concluiu',
+      funcionarioEnvio: atividadeAtualizada?.funcionarioEnvio,
+      observacaoEnvio: atividadeAtualizada?.observacaoEnvio,
+    });
 
-    const setorAnterior = atividadeAtual.setorAtual;
-    const novoSetor = proximoSetor(setorAnterior);
+    await carregarAtividades();
+  }
+};
 
-    const { error } = await supabase
+
+  // NOVO: Handler do botão retornar (abre modal)
+  const abrirModalRetornarAtividade = (pedido) => setPedidoParaRetornar(pedido);
+  const fecharModalRetornarAtividade = () => setPedidoParaRetornar(null);
+
+  // NOVO: Handler de confirmação do retorno
+  const retornarAtividade = async (pedidoId, nomeFuncionario, observacao) => {
+  const { data: atividadeAtual, error: fetchError } = await supabase
+    .from('atividades')
+    .select('*')
+    .eq('id', pedidoId)
+    .single();
+
+  if (fetchError || !atividadeAtual) {
+    alert('Erro ao buscar a atividade!');
+    return;
+  }
+
+  const setorOrigemVal = atividadeAtual.setorAtual;
+  const novoSetor = setorAnterior(setorOrigemVal);
+
+  if (novoSetor === setorOrigemVal) {
+    alert('Já está no primeiro setor, não pode retornar.');
+    return;
+  }
+
+  const { error } = await supabase
+    .from('atividades')
+    .update({
+      setorAtual: novoSetor,
+      funcionarioEnvio: nomeFuncionario,
+      observacaoEnvio: observacao,
+      dataEnvio: new Date().toISOString(),
+      statusRetorno: true, // <-- Aqui o destaque!
+    })
+    .eq('id', pedidoId);
+
+  if (!error) {
+    const { data: atividadeAtualizada } = await supabase
       .from('atividades')
-      .update({
-        status: novoSetor === 'Finalizado' ? 'concluido' : 'pendente',
-        setorAtual: novoSetor,
-        funcionarioEnvio: nomeFuncionario,
-        observacaoEnvio: observacao,
-        dataEnvio: new Date().toISOString(),
-      })
-      .eq('id', pedidoId);
+      .select('funcionarioEnvio, observacaoEnvio')
+      .eq('id', pedidoId)
+      .single();
 
-    if (!error) {
-      const { data: atividadeAtualizada } = await supabase
-        .from('atividades')
-        .select('funcionarioEnvio, observacaoEnvio')
-        .eq('id', pedidoId)
-        .single();
+    await registrarMovimentacao({
+      pedidoId,
+      setorOrigem: setorOrigemVal,
+      setorDestino: novoSetor,
+      tipo: 'retornou',
+      funcionarioEnvio: atividadeAtualizada?.funcionarioEnvio,
+      observacaoEnvio: atividadeAtualizada?.observacaoEnvio,
+    });
 
-      await registrarMovimentacao({
-        pedidoId,
-        setorOrigem: setorAnterior,
-        setorDestino: novoSetor,
-        tipo: 'concluiu',
-        funcionarioEnvio: atividadeAtualizada?.funcionarioEnvio,
-        observacaoEnvio: atividadeAtualizada?.observacaoEnvio,
-      });
+    await carregarAtividades();
+  }
+};
 
-      await carregarAtividades();
-    }
-  };
 
   const abrirVisualizacao = (pedido) => setPedidoVisualizado(pedido);
   const fecharVisualizacao = () => setPedidoVisualizado(null);
@@ -253,7 +318,6 @@ function App() {
 
   const setorLogado = usuario?.setor || 'admin';
 
-  // Função de realtime otimizada!
   const handleNovaAtividade = usuario
     ? (novaAtividade) => {
         const setorAtividade = normalize(novaAtividade.setorAtual);
@@ -333,6 +397,7 @@ function App() {
                 onEditar={salvarEdicao}
                 onApagar={apagarAtividade}
                 onConcluir={abrirModalConcluirAtividade}
+                onRetornar={abrirModalRetornarAtividade}  // <-- PASSA O HANDLER NOVO
                 usuarioAtual={setorLogado.toLowerCase()}
               />
             }
@@ -386,6 +451,17 @@ function App() {
             onConfirmar={(nome, observacao) => {
               concluirAtividade(pedidoParaConcluir.id, nome, observacao);
               fecharModalConcluirAtividade();
+            }}
+          />
+        )}
+
+        {pedidoParaRetornar && (
+          <ModalRetornarAtividade
+            atividade={pedidoParaRetornar}
+            onCancelar={fecharModalRetornarAtividade}
+            onConfirmar={(nome, observacao) => {
+              retornarAtividade(pedidoParaRetornar.id, nome, observacao);
+              fecharModalRetornarAtividade();
             }}
           />
         )}
