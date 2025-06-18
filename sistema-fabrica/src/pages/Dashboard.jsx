@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
+import { supabase } from '../supabaseClient';
 
 const ordemSetores = [
   'Gabarito',
@@ -40,28 +41,84 @@ const Dashboard = ({
     return new Date(ano, mes, dia);
   };
 
-  // Filtros
   const [filtro, setFiltro] = useState('');
   const [setorFiltro, setSetorFiltro] = useState('');
-  const [aba, setAba] = useState('andamento'); // 'andamento' ou 'finalizados'
+  const [aba, setAba] = useState('andamento');
 
-  // Contagem por setor (garantindo todos aparecem)
-  const setorCount = ordemSetores.reduce((acc, setor) => {
-    acc[setor] = 0;
-    return acc;
-  }, {});
-  atividades.forEach((a) => {
-    if (setorCount.hasOwnProperty(a.setorAtual)) {
-      setorCount[a.setorAtual]++;
+  const isAdmin = usuarioAtual === 'admin';
+
+  const [setorCount, setSetorCount] = useState(() =>
+    ordemSetores.reduce((acc, setor) => {
+      acc[setor] = 0;
+      return acc;
+    }, {})
+  );
+
+  const [contadorSetor, setContadorSetor] = useState({ fila: 0, concluidas: 0 });
+
+  // Admin: contagem total por setor
+  useEffect(() => {
+    const buscarContagemPorSetor = async () => {
+      const { data, error } = await supabase
+        .from('atividades')
+        .select('setorAtual');
+
+      if (error) {
+        console.error('Erro ao buscar contagem:', error.message);
+        return;
+      }
+
+      const contagem = ordemSetores.reduce((acc, setor) => {
+        acc[setor] = 0;
+        return acc;
+      }, {});
+
+      data?.forEach((item) => {
+        if (item.setorAtual && contagem.hasOwnProperty(item.setorAtual)) {
+          contagem[item.setorAtual]++;
+        }
+      });
+
+      setSetorCount(contagem);
+    };
+
+    if (isAdmin) {
+      buscarContagemPorSetor();
     }
-  });
+  }, [isAdmin]);
+
+  // Usuário comum: contagem da própria fila e concluídos
+  useEffect(() => {
+  const buscarContagemSetor = async () => {
+    if (!usuarioAtual || usuarioAtual === 'admin') return;
+
+    const { count: fila, error: erroFila } = await supabase
+      .from('atividades')
+      .select('*', { count: 'exact', head: true })
+      .ilike('setorAtual', usuarioAtual);
+
+    const { count: concluidas, error: erroConcluidas } = await supabase
+      .from('movimentacoes')
+      .select('*', { count: 'exact', head: true })
+      .ilike('setor_origem', usuarioAtual);
+
+    if (erroFila || erroConcluidas) {
+      console.error('Erro ao buscar contagem do setor', erroFila || erroConcluidas);
+      return;
+    }
+
+    setContadorSetor({ fila, concluidas });
+  };
+
+  buscarContagemSetor();
+}, [usuarioAtual]);
+
 
   const getPrazoBadgeClass = (dataEntrega) => {
     if (!dataEntrega) return '';
     const hoje = new Date();
     const entrega = criarDataLocal(dataEntrega);
     const diffDias = Math.ceil((entrega - hoje) / (1000 * 60 * 60 * 24));
-
     if (diffDias > 10) return 'green';
     if (diffDias > 5) return 'orange';
     return 'red';
@@ -69,12 +126,7 @@ const Dashboard = ({
 
   const normalizar = (str) => str?.toString().toLowerCase().trim() || '';
 
-  // Só mostra essas melhorias se admin:
-  const isAdmin = usuarioAtual === 'admin';
-
-  // Filtro com aba, setor e texto
   const atividadesFiltradas = atividades.filter((a) => {
-    // Aba: andamento = tudo que NÃO é finalizado, finalizados = só finalizado
     const statusOk =
       !isAdmin ||
       (aba === 'andamento' ? a.setorAtual !== 'Finalizado' : a.setorAtual === 'Finalizado');
@@ -98,25 +150,20 @@ const Dashboard = ({
     );
   });
 
-  // AGORA ORDENA: retornados sempre primeiro!
   const atividadesOrdenadas = [...atividadesFiltradas].sort((a, b) => {
-  // PARA OS SETORES NORMAIS: retornados no topo
-  if (!isAdmin) {
-    if (a.statusRetorno && !b.statusRetorno) return -1;
-    if (!a.statusRetorno && b.statusRetorno) return 1;
-  }
-  // 1º critério: setor "Embalagem" sempre primeiro
-  if (a.setorAtual === 'Embalagem' && b.setorAtual !== 'Embalagem') return -1;
-  if (b.setorAtual === 'Embalagem' && a.setorAtual !== 'Embalagem') return 1;
-  // 2º critério: ordena por data normalmente
-  const dataA = criarDataLocal(a.dataEntrega);
-  const dataB = criarDataLocal(b.dataEntrega);
-  return dataA - dataB;
-});
+    if (!isAdmin) {
+      if (a.statusRetorno && !b.statusRetorno) return -1;
+      if (!a.statusRetorno && b.statusRetorno) return 1;
+    }
+    if (a.setorAtual === 'Embalagem' && b.setorAtual !== 'Embalagem') return -1;
+    if (b.setorAtual === 'Embalagem' && a.setorAtual !== 'Embalagem') return 1;
 
+    const dataA = criarDataLocal(a.dataEntrega);
+    const dataB = criarDataLocal(b.dataEntrega);
+    return dataA - dataB;
+  });
 
   const deveMostrarBotaoRetornar = (setor, usuarioAtual) => {
-    // Só mostra para setores comuns, nunca para admin, nunca para "gabarito" nem "finalizado"
     return (
       !isAdmin &&
       setoresComuns.includes(usuarioAtual) &&
@@ -129,7 +176,6 @@ const Dashboard = ({
     <div className="dashboard">
       <h1>Dashboard</h1>
 
-      {/* Contadores por setor na ordem certa - só para admin */}
       {isAdmin && (
         <div className="cards">
           {ordemSetores.map((setor) => (
@@ -143,7 +189,38 @@ const Dashboard = ({
         </div>
       )}
 
-      {/* Abas de andamento/finalizados - só para admin */}
+      {!isAdmin && (
+  <div className="cards">
+    <div className="card" style={{ borderColor: '#FFD700' }}>
+      <div style={{ fontWeight: 'bold', color: '#FFD700' }}>Fila do setor</div>
+      <div
+        className="badge"
+        style={{
+          backgroundColor: '#FFD700',
+          color: '#fff',
+          fontWeight: 'bold',
+        }}
+      >
+        {contadorSetor.fila}
+      </div>
+    </div>
+    <div className="card" style={{ borderColor: '#28a745' }}>
+      <div style={{ fontWeight: 'bold', color: '#28a745' }}>Concluídos</div>
+      <div
+        className="badge"
+        style={{
+          backgroundColor: '#28a745',
+          color: '#fff',
+          fontWeight: 'bold',
+        }}
+      >
+        {contadorSetor.concluidas}
+      </div>
+    </div>
+  </div>
+)}
+
+
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 16 }}>
         {isAdmin && (
           <select
@@ -169,6 +246,8 @@ const Dashboard = ({
         {isAdmin && (
           <>
             <button
+              onClick={() => setAba('andamento')}
+              disabled={aba === 'andamento'}
               style={{
                 padding: '8px 18px',
                 fontWeight: 'bold',
@@ -177,12 +256,12 @@ const Dashboard = ({
                 borderRadius: '10px',
                 cursor: aba === 'andamento' ? 'default' : 'pointer',
               }}
-              onClick={() => setAba('andamento')}
-              disabled={aba === 'andamento'}
             >
               Em andamento
             </button>
             <button
+              onClick={() => setAba('finalizados')}
+              disabled={aba === 'finalizados'}
               style={{
                 padding: '8px 18px',
                 fontWeight: 'bold',
@@ -191,8 +270,6 @@ const Dashboard = ({
                 borderRadius: '10px',
                 cursor: aba === 'finalizados' ? 'default' : 'pointer',
               }}
-              onClick={() => setAba('finalizados')}
-              disabled={aba === 'finalizados'}
             >
               Finalizados
             </button>

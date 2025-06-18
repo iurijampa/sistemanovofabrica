@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { gerarPDFPedido } from '../utils/gerarPDFPedido';
+import { FaFilePdf } from 'react-icons/fa';
 
 // Recebe a prop setorUsuario (ex: 'gabarito', 'impressao', 'admin'...)
 const Historico = ({ setorUsuario }) => {
@@ -13,7 +15,13 @@ const Historico = ({ setorUsuario }) => {
         .select(`
           *,
           atividade:pedido_id (
-            pedido
+            pedido,
+            cliente,
+            descricao,
+            imagem,
+            imagensExtras,
+            setorAtual,
+            dataEntrega
           )
         `)
         .order('data', { ascending: false });
@@ -23,10 +31,7 @@ const Historico = ({ setorUsuario }) => {
       } else {
         // Filtro por setor (se não for admin, só mostra mov do setor)
         let resultado = data;
-        if (
-          setorUsuario &&
-          setorUsuario !== 'admin'
-        ) {
+        if (setorUsuario && setorUsuario !== 'admin') {
           const setor = setorUsuario.toLowerCase();
           resultado = data.filter(
             (mov) =>
@@ -41,6 +46,19 @@ const Historico = ({ setorUsuario }) => {
 
     carregarMovimentacoes();
   }, [setorUsuario]);
+
+  // Função para montar o objeto pedido (usa fallback se faltar campo)
+  const montarPedido = (mov) => {
+    return {
+      pedido: mov.atividade?.pedido || mov.pedido_id || '',
+      cliente: mov.atividade?.cliente || '',
+      descricao: mov.atividade?.descricao || '',
+      imagem: mov.atividade?.imagem || '',
+      imagensExtras: mov.atividade?.imagensExtras || '[]',
+      setorAtual: mov.atividade?.setorAtual || mov.setor_destino || '',
+      dataEntrega: mov.atividade?.dataEntrega || '',
+    };
+  };
 
   return (
     <div>
@@ -66,12 +84,39 @@ const Historico = ({ setorUsuario }) => {
                   : '—'}
               </strong>{" "}
               {mov.tipo}
-              {/* Exibe o nome do pedido ao invés do id */}
-              {mov.atividade?.pedido
-                ? ` o pedido ${mov.atividade.pedido}`
-                : mov.pedido_id
-                ? ` o pedido ${mov.pedido_id.slice(0, 8)}`
-                : ''}
+              {/* Nome do pedido + botão PDF */}
+              {mov.atividade?.pedido ? (
+                <>
+                  {` o pedido `}
+<strong>{mov.atividade.pedido}</strong>
+{" "}
+<button
+  onClick={() => gerarPDFPedido(montarPedido(mov))}
+  style={{
+    backgroundColor: '#e63946',
+    color: 'white',
+    border: 'none',
+    borderRadius: '5px',
+    padding: '5px 14px 5px 10px',
+    marginLeft: 8,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontWeight: 500,
+    fontSize: '14px',
+    cursor: 'pointer',
+  }}
+  title="Gerar PDF do Pedido"
+>
+  <FaFilePdf size={16} />
+  Gerar PDF
+</button>
+
+
+                </>
+              ) : mov.pedido_id ? (
+                ` o pedido ${mov.pedido_id.slice(0, 8)}`
+              ) : ''}
               .<br />
               {mov.setor_origem && <span>Origem: {mov.setor_origem} </span>}
               {mov.setor_destino && <span>→ Destino: {mov.setor_destino}</span>}
