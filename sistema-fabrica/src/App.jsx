@@ -17,18 +17,18 @@ import Estoque from './pages/Estoque';
 import ModalAlertaEstoque from './components/ModalAlertaEstoque';
 
 const LIMITES_ALERTA = {
-  'AERODRY': 200,
+  'AERODRY': 100,
   'DRYFIT': 500,
   'DRY JERSIE': 500,
-  'DRY MANCHESTER': 200,
+  'DRY MANCHESTER': 100,
   'DRY NBA': 100,
   'DRY SOLUTION': 200,
-  'DRY TEC': 100,
+  'DRY TEC': 50,
   'HELANCA COLEGIAL': 50,
   'HELANQUINHA': 600,
-  'OXFORD': 100,
+  'OXFORD': 50,
   'PIQUET ALGODÃO': 600,
-  'PIQUET DE POLIESTER': 100,
+  'PIQUET DE POLIESTER': 50,
   'POLIESTER': 100,
   'RIBANA': 600,
   'TACTEL': 100,
