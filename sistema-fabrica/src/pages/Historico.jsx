@@ -3,10 +3,24 @@ import { supabase } from '../supabaseClient';
 import { gerarPDFPedido } from '../utils/gerarPDFPedido';
 import { FaFilePdf } from 'react-icons/fa';
 
-// Recebe a prop setorUsuario (ex: 'gabarito', 'impressao', 'admin'...)
+// Setores para filtro (adicione mais se precisar)
+const listaSetores = [
+  '',
+  'Gabarito',
+  'Impressao',
+  'Batida',
+  'Costura',
+  'Embalagem',
+  'Finalizado',
+];
+
 const Historico = ({ setorUsuario }) => {
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [carregando, setCarregando] = useState(true);
+
+  // Novos estados para filtro
+  const [filtroTexto, setFiltroTexto] = useState('');
+  const [filtroSetor, setFiltroSetor] = useState('');
 
   useEffect(() => {
     const carregarMovimentacoes = async () => {
@@ -60,16 +74,64 @@ const Historico = ({ setorUsuario }) => {
     };
   };
 
+  // FILTRO: só admins veem os filtros
+  const filtrados = movimentacoes.filter((mov) => {
+    if (setorUsuario !== 'admin') return true;
+    const texto = filtroTexto.trim().toLowerCase();
+
+    // Verifica os campos relevantes para filtro de texto
+    const nomeCliente = mov.atividade?.cliente?.toLowerCase() || '';
+    const nomePedido = mov.atividade?.pedido?.toLowerCase() || '';
+    const setores = [mov.setor_origem, mov.setor_destino, mov.atividade?.setorAtual]
+      .map(s => s ? s.toLowerCase() : '')
+      .filter(Boolean);
+
+    const filtroSetorOk = !filtroSetor || setores.includes(filtroSetor.toLowerCase());
+
+    return (
+      filtroSetorOk &&
+      (
+        !texto ||
+        nomeCliente.includes(texto) ||
+        nomePedido.includes(texto)
+      )
+    );
+  });
+
   return (
     <div>
       <h2>Histórico de Movimentações</h2>
+
+      {/* Filtros só para admin */}
+      {setorUsuario === 'admin' && (
+        <div style={{ marginBottom: 16, display: 'flex', gap: 12 }}>
+          <input
+            type="text"
+            placeholder="Buscar por pedido"
+            value={filtroTexto}
+            onChange={e => setFiltroTexto(e.target.value)}
+            style={{ padding: 8, minWidth: 180 }}
+          />
+          <select
+            value={filtroSetor}
+            onChange={e => setFiltroSetor(e.target.value)}
+            style={{ padding: 8 }}
+          >
+            <option value="">Todos os setores</option>
+            {listaSetores.filter(s => s).map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {carregando ? (
         <p>Carregando...</p>
-      ) : movimentacoes.length === 0 ? (
+      ) : filtrados.length === 0 ? (
         <p>Nenhuma movimentação registrada ainda.</p>
       ) : (
         <ul style={{ padding: 0, listStyle: 'none' }}>
-          {movimentacoes.map((mov) => (
+          {filtrados.map((mov) => (
             <li
               key={mov.id}
               style={{
@@ -88,31 +150,29 @@ const Historico = ({ setorUsuario }) => {
               {mov.atividade?.pedido ? (
                 <>
                   {` o pedido `}
-<strong>{mov.atividade.pedido}</strong>
-{" "}
-<button
-  onClick={() => gerarPDFPedido(montarPedido(mov))}
-  style={{
-    backgroundColor: '#e63946',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    padding: '5px 14px 5px 10px',
-    marginLeft: 8,
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '6px',
-    fontWeight: 500,
-    fontSize: '14px',
-    cursor: 'pointer',
-  }}
-  title="Gerar PDF do Pedido"
->
-  <FaFilePdf size={16} />
-  Gerar PDF
-</button>
-
-
+                  <strong>{mov.atividade.pedido}</strong>
+                  {" "}
+                  <button
+                    onClick={() => gerarPDFPedido(montarPedido(mov))}
+                    style={{
+                      backgroundColor: '#e63946',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '5px',
+                      padding: '5px 14px 5px 10px',
+                      marginLeft: 8,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontWeight: 500,
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                    }}
+                    title="Gerar PDF do Pedido"
+                  >
+                    <FaFilePdf size={16} />
+                    Gerar PDF
+                  </button>
                 </>
               ) : mov.pedido_id ? (
                 ` o pedido ${mov.pedido_id.slice(0, 8)}`
