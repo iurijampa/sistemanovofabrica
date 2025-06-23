@@ -1,7 +1,21 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 
-const getHojeISO = () => new Date().toISOString().slice(0, 10);
+// NOVA FUNÇÃO para pegar início e fim do dia no horário de Brasília
+function getIntervaloHojeBrasil() {
+  // Hoje no fuso de São Paulo (GMT-3)
+  const hoje = new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+  const [mes, dia, ano] = hoje.split(",")[0].split("/"); // Formato MM/DD/YYYY
+  // Início do dia (00:00:00)
+  const inicio = new Date(`${ano}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}T00:00:00-03:00`);
+  // Fim do dia (23:59:59)
+  const fim = new Date(`${ano}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}T23:59:59-03:00`);
+  return {
+    inicio: inicio.toISOString().slice(0, 19), // YYYY-MM-DDTHH:mm:ss
+    fim: fim.toISOString().slice(0, 19)
+  };
+}
+
 function formatarMinutos(minutos) {
   if (!minutos || isNaN(minutos) || minutos === Infinity) return "-";
   const h = Math.floor(minutos / 60);
@@ -23,28 +37,33 @@ export default function ResumoSetor({ setor }) {
     async function carregarResumo() {
       const setorCap = capitalizar(setor);
 
-      const todayISO = getHojeISO();
-      const inicioSemana = new Date();
+      // Pegando intervalo correto de hoje no horário do Brasil
+      const { inicio, fim } = getIntervaloHojeBrasil();
+
+      // SEMANA: pega 6 dias atrás no horário do Brasil também
+      const inicioSemana = new Date(new Date(inicio));
       inicioSemana.setDate(inicioSemana.getDate() - 6);
       const semanaISO = inicioSemana.toISOString().slice(0, 10);
 
+      // BUSCA DE HOJE
       const { data: concluidasHoje } = await supabase
         .from("movimentacoes")
         .select("*")
         .eq("setor_origem", setorCap)
         .eq("tipo", "concluiu")
-        .gte("data", todayISO)
-        .lte("data", todayISO + "T23:59:59");
+        .gte("data", inicio)
+        .lte("data", fim);
 
       setHoje(concluidasHoje?.length || 0);
 
+      // BUSCA DOS ÚLTIMOS 7 DIAS
       const { data: concluidas7dias } = await supabase
         .from("movimentacoes")
         .select("*")
         .eq("setor_origem", setorCap)
         .eq("tipo", "concluiu")
-        .gte("data", semanaISO)
-        .lte("data", todayISO + "T23:59:59");
+        .gte("data", `${semanaISO}T00:00:00`)
+        .lte("data", fim);
 
       setMedia(concluidas7dias ? Math.round(concluidas7dias.length / 6) : 0);
 
@@ -52,8 +71,8 @@ export default function ResumoSetor({ setor }) {
         .from("movimentacoes")
         .select("*")
         .eq("setor_destino", setorCap)
-        .gte("data", semanaISO)
-        .lte("data", todayISO + "T23:59:59");
+        .gte("data", `${semanaISO}T00:00:00`)
+        .lte("data", fim);
 
       function calcularTempos(pedidosConcluidos, entradasSetor) {
         const tempos = [];
@@ -70,12 +89,13 @@ export default function ResumoSetor({ setor }) {
         return tempos;
       }
 
+      // ENTRADAS DE HOJE
       const { data: entradasHoje } = await supabase
         .from("movimentacoes")
         .select("*")
         .eq("setor_destino", setorCap)
-        .gte("data", todayISO)
-        .lte("data", todayISO + "T23:59:59");
+        .gte("data", inicio)
+        .lte("data", fim);
 
       const temposHoje = calcularTempos(concluidasHoje || [], entradasHoje || []);
       setTempoMedio(formatarMinutos(
