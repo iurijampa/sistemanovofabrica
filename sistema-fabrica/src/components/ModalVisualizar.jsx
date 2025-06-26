@@ -1,11 +1,138 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import jsPDF from 'jspdf';
 import Zoom from 'react-medium-image-zoom';
 import 'react-medium-image-zoom/dist/styles.css';
+import { supabase } from '../supabaseClient';
 
-const ModalVisualizar = ({ pedido, onClose }) => {
+// Padrão de cores igual dashboard
+const setorColors = {
+  Gabarito: '#3182ce',
+  Impressao: '#ffee00',
+  Batida: '#ed8936',
+  Costura: '#d53f8c',
+  Embalagem: '#805ad5',
+  Finalizado: '#00ff00',
+  default: '#3182ce'
+};
+
+function LinhaTempoHistorico({ movimentacoes }) {
+  // começa aberto no último (mais recente)
+  const [expandido, setExpandido] = useState(movimentacoes.length - 1);
+
+  useEffect(() => {
+    setExpandido(movimentacoes.length - 1);
+  }, [movimentacoes]);
+
+  return (
+    <div style={{
+      borderLeft: '4px solid #3182ce',
+      paddingLeft: 8,
+      marginLeft: 10,
+      marginBottom: 12,
+      position: 'relative'
+    }}>
+      {movimentacoes.map((m, idx) => {
+        const cor = setorColors[m.setor_destino] || setorColors.default;
+        const aberto = expandido === idx;
+
+        return (
+          <div key={m.id} style={{ marginBottom: idx === movimentacoes.length - 1 ? 0 : 18, position: 'relative' }}>
+            {/* Bolinha colorida do setor */}
+            <div style={{
+              position: 'absolute',
+              left: -22, top: 2,
+              width: 16, height: 16, borderRadius: '50%',
+              background: cor,
+              border: '3px solid #fff',
+              boxShadow: `0 0 6px ${cor}55`,
+              cursor: 'pointer',
+              zIndex: 2,
+              transition: 'background .2s'
+            }}
+              title={m.setor_destino}
+              onClick={() => setExpandido(aberto ? null : idx)}
+            />
+
+            <div
+              style={{
+                cursor: 'pointer',
+                padding: '8px 0 8px 18px',
+                borderRadius: 8,
+                background: aberto ? `${cor}12` : 'transparent',
+                transition: '.2s',
+                fontWeight: 700,
+                color: cor === '#ffee00' ? '#544a00' : cor
+              }}
+              onClick={() => setExpandido(aberto ? null : idx)}
+            >
+              {m.setor_origem} <span style={{
+                fontWeight: 400,
+                color: '#888'
+              }}>→ {m.setor_destino}</span>
+              <span style={{
+                marginLeft: 10,
+                fontWeight: 400,
+                fontSize: 13,
+                color: '#555'
+              }}>
+                {aberto ? "▲" : "▼"}
+              </span>
+            </div>
+            {aberto && (
+              <div style={{
+                marginLeft: 18,
+                background: '#f7f9fa',
+                padding: 10,
+                borderRadius: 8,
+                boxShadow: '0 1px 5px #0001',
+                marginBottom: 4
+              }}>
+                <div style={{ fontSize: 15, marginBottom: 2 }}>
+                  <strong>Por:</strong> {m.funcionarioEnvio || '-'}
+                </div>
+                {m.observacaoEnvio && (
+                  <div style={{ fontSize: 15, marginBottom: 2 }}>
+                    <strong>Obs:</strong> {m.observacaoEnvio}
+                  </div>
+                )}
+                <div style={{ fontSize: 14, color: '#888' }}>
+                  <strong>Data/hora:</strong> {m.data ? new Date(m.data).toLocaleString() : '-'}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---- ModalVisualizar Completo ----
+
+const ModalVisualizar = ({ pedido, onClose, usuarioAtual }) => {
+  const [movimentacoes, setMovimentacoes] = useState([]);
+  const isAdmin = usuarioAtual?.toLowerCase() === 'admin';
+
+  useEffect(() => {
+    if (isAdmin && pedido.id) {
+      const buscarHistorico = async () => {
+        const { data, error } = await supabase
+          .from('movimentacoes')
+          .select('*')
+          .eq('pedido_id', pedido.id)
+          .order('data', { ascending: true });
+        if (!error) setMovimentacoes(data || []);
+      };
+      buscarHistorico();
+    }
+  }, [isAdmin, pedido.id]);
+
+  // Helpers
   const criarDataLocal = (dataStr) => {
     if (!dataStr) return null;
+    if (dataStr.includes('T') || dataStr.includes(' ')) {
+      return new Date(dataStr);
+    }
     const partes = dataStr.split('-');
     const ano = parseInt(partes[0], 10);
     const mes = parseInt(partes[1], 10) - 1;
@@ -18,19 +145,24 @@ const ModalVisualizar = ({ pedido, onClose }) => {
     ? dataEntregaLocal.toLocaleDateString()
     : '-';
 
-  const imagensExtras = pedido.imagensExtras
-    ? JSON.parse(pedido.imagensExtras)
-    : [];
+  let imagensExtras = [];
+  try {
+    imagensExtras = pedido.imagensExtras
+      ? typeof pedido.imagensExtras === 'string'
+        ? JSON.parse(pedido.imagensExtras)
+        : pedido.imagensExtras
+      : [];
+  } catch {
+    imagensExtras = [];
+  }
 
-  // Função para carregar imagem e retornar base64 para o jsPDF
+  // PDF
   const getBase64ImageFromUrl = async (imageUrl) => {
     const res = await fetch(imageUrl);
     const blob = await res.blob();
     return new Promise((resolve) => {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        resolve(reader.result);
-      };
+      reader.onloadend = () => resolve(reader.result);
       reader.readAsDataURL(blob);
     });
   };
@@ -42,38 +174,29 @@ const ModalVisualizar = ({ pedido, onClose }) => {
     const margin = 40;
     let pageIndex = 1;
 
-    // Cabeçalho da página
     const drawHeader = (pagina = 1) => {
       const startY = 60;
-
       if (pagina > 1) {
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(14);
         doc.setTextColor('#999');
         doc.text(`Continuação - Página ${pagina}`, pageWidth / 2, 30, { align: 'center' });
       }
-
-      // Destaque na data de entrega
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(26);
       doc.setTextColor('#000');
       doc.text(`Data de Entrega: ${dataFormatada}`, pageWidth / 2, startY, { align: 'center' });
-
-      // Dados do cliente e pedido
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(13);
       doc.setTextColor('#444');
       doc.text(`Cliente: ${pedido.cliente}`, margin, startY + 35);
       doc.text(`Pedido: ${pedido.pedido}`, margin, startY + 55);
-
       return startY + 90;
     };
 
-    // Imagem + Descrição lado a lado
     const insertMainImageAndDescricao = async (startY) => {
       const contentWidth = pageWidth - margin * 2;
       const halfWidth = contentWidth / 2;
-
       const maxImageWidth = halfWidth;
       const maxImageHeight = 260;
 
@@ -97,18 +220,15 @@ const ModalVisualizar = ({ pedido, onClose }) => {
       const descricaoMaxWidth = pageWidth - descricaoX - margin;
       const descricaoLines = doc.splitTextToSize(descricaoText, descricaoMaxWidth);
 
-      // Desenha imagem
-      const novoStartY = drawHeader(pageIndex); // pega o Y final do cabeçalho
+      const novoStartY = drawHeader(pageIndex);
       doc.addImage(imgBase64, 'JPEG', imageX, novoStartY, width, height);
 
-      // Título
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(13);
       doc.setTextColor('#000');
       doc.text('Descrição:', descricaoX, descricaoY);
       descricaoY += 20;
 
-      // Texto
       doc.setFont('helvetica', 'normal');
       const lineHeight = 16;
       let i = 0;
@@ -117,7 +237,7 @@ const ModalVisualizar = ({ pedido, onClose }) => {
       while (i < descricaoLines.length) {
         if (descricaoY + lineHeight > pageHeight - margin) {
           doc.addPage();
-          const novoStartY = drawHeader(++pageIndex); // redesenha cabeçalho e guarda Y
+          const novoStartY = drawHeader(++pageIndex);
           doc.addImage(imgBase64, 'JPEG', imageX, novoStartY, width, height);
 
           descricaoX = imageX + width + 20;
@@ -136,13 +256,11 @@ const ModalVisualizar = ({ pedido, onClose }) => {
         i++;
         maxY = Math.max(maxY, descricaoY);
       }
-
       return { endY: imageY + height + 20 };
     };
 
-    // Imagens adicionais em grade abaixo
     const insertExtraImages = async (startY) => {
-      const x = margin; // mantém à esquerda
+      const x = margin;
       const maxWidth = 260;
       const maxHeight = 200;
       const spacing = 15;
@@ -168,25 +286,16 @@ const ModalVisualizar = ({ pedido, onClose }) => {
 
           doc.addImage(extraBase64, 'JPEG', x, y, w, h);
           y += h + spacing;
-        } catch (e) {
-          console.warn('Erro ao carregar imagem adicional:', e);
-        }
+        } catch (e) { }
       }
-
       return { endY: y };
     };
 
-    // Geração do PDF
     try {
       let pageIndex = 1;
       let currentY = drawHeader(pageIndex);
-
-      // Imagem principal + descrição lado a lado
       const { endY: afterMain } = await insertMainImageAndDescricao(currentY);
-
-      // Imagens adicionais abaixo
       await insertExtraImages(afterMain);
-
       doc.save(`pedido_${pedido.pedido}.pdf`);
     } catch (error) {
       alert('Erro ao gerar PDF: ' + error.message);
@@ -247,60 +356,58 @@ const ModalVisualizar = ({ pedido, onClose }) => {
         <h2 style={{ marginTop: 0, marginBottom: '20px' }}>Detalhes do Pedido</h2>
 
         <Zoom
-  zoomImg={{
-    src: pedido.imagem,
-    style: {
-      maxWidth: '90vw',
-      maxHeight: '90vh',
-      width: 'auto',
-      height: 'auto',
-      objectFit: 'contain',
-      background: '#f8f8f8',
-      borderRadius: '12px'
-    }
-  }}
->
-  <div style={{
-    width: '100%',
-    minHeight: '100px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: '#f8f8f8',
-    borderRadius: '6px',
-    marginBottom: '15px',
-  }}>
-    <img
-      src={`https://images.weserv.nl/?url=${encodeURIComponent(pedido.imagem)}&w=700&fit=contain`}
-      alt="Imagem principal"
-      style={{
-        maxWidth: '100%',
-        maxHeight: '350px',
-        width: 'auto',
-        height: 'auto',
-        objectFit: 'contain',
-        background: '#f8f8f8',
-        borderRadius: '6px',
-        cursor: 'zoom-in',
-        display: 'block'
-      }}
-      loading="lazy"
-      onError={function handleThumbError(e) {
-        if (e.target.dataset.fallback !== "original") {
-          e.target.src = pedido.imagem;
-          e.target.dataset.fallback = "original";
-        } else {
-          e.target.src = 'https://via.placeholder.com/150x150?text=Erro';
-        }
-      }}
-    />
-  </div>
-</Zoom>
-
+          zoomImg={{
+            src: pedido.imagem,
+            style: {
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              width: 'auto',
+              height: 'auto',
+              objectFit: 'contain',
+              background: '#f8f8f8',
+              borderRadius: '12px'
+            }
+          }}
+        >
+          <div style={{
+            width: '100%',
+            minHeight: '100px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#f8f8f8',
+            borderRadius: '6px',
+            marginBottom: '15px',
+          }}>
+            <img
+              src={`https://images.weserv.nl/?url=${encodeURIComponent(pedido.imagem)}&w=700&fit=contain`}
+              alt="Imagem principal"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '350px',
+                width: 'auto',
+                height: 'auto',
+                objectFit: 'contain',
+                background: '#f8f8f8',
+                borderRadius: '6px',
+                cursor: 'zoom-in',
+                display: 'block'
+              }}
+              loading="lazy"
+              onError={function handleThumbError(e) {
+                if (e.target.dataset.fallback !== "original") {
+                  e.target.src = pedido.imagem;
+                  e.target.dataset.fallback = "original";
+                } else {
+                  e.target.src = 'https://via.placeholder.com/150x150?text=Erro';
+                }
+              }}
+            />
+          </div>
+        </Zoom>
 
         <p><strong>Pedido:</strong> {pedido.pedido}</p>
         <p><strong>Cliente:</strong> {pedido.cliente}</p>
-
         <p><strong>Descrição:</strong></p>
         <div
           style={{
@@ -315,7 +422,6 @@ const ModalVisualizar = ({ pedido, onClose }) => {
         >
           {pedido.descricao}
         </div>
-
         <p><strong>Setor Atual:</strong> {pedido.setorAtual}</p>
         <p><strong>Data de Entrega:</strong> {dataFormatada}</p>
 
@@ -341,8 +447,8 @@ const ModalVisualizar = ({ pedido, onClose }) => {
                     style={{
                       width: '120px',
                       height: '120px',
-                      objectFit: 'contain',     // <-- Não corta lateral
-                      background: '#f8f8f8',    // <-- Fundo neutro
+                      objectFit: 'contain',
+                      background: '#f8f8f8',
                       borderRadius: '8px',
                       boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
                       cursor: 'zoom-in',
@@ -363,6 +469,18 @@ const ModalVisualizar = ({ pedido, onClose }) => {
           </>
         )}
 
+        {/* HISTÓRICO COM CORES E EXPANSÍVEL */}
+        {isAdmin && (
+          <div style={{ margin: '32px 0 12px 0' }}>
+            <h3>Histórico da Atividade</h3>
+            {movimentacoes.length > 0 ? (
+              <LinhaTempoHistorico movimentacoes={movimentacoes} />
+            ) : (
+              <div style={{ color: '#999', paddingLeft: 28 }}>Nenhuma movimentação encontrada para este pedido.</div>
+            )}
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px' }}>
           <button
             onClick={gerarPDF}
@@ -377,7 +495,6 @@ const ModalVisualizar = ({ pedido, onClose }) => {
           >
             Gerar PDF
           </button>
-
           <button
             onClick={onClose}
             style={{

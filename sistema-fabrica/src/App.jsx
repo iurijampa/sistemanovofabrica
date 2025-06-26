@@ -430,11 +430,13 @@ function App() {
         </Routes>
 
         {pedidoVisualizado && (
-          <ModalVisualizar
-            pedido={pedidoVisualizado}
-            onClose={fecharVisualizacao}
-          />
-        )}
+  <ModalVisualizar
+    pedido={pedidoVisualizado}
+    onClose={fecharVisualizacao}
+    usuarioAtual={setorLogado.toLowerCase()}
+  />
+)}
+
 
         {pedidoEditando && (
           <ModalEditar
