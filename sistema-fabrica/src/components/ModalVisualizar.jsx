@@ -4,7 +4,7 @@ import Zoom from 'react-medium-image-zoom';
 import 'react-medium-image-zoom/dist/styles.css';
 import { supabase } from '../supabaseClient';
 
-// Padrão de cores igual dashboard
+// Cores do dashboard
 const setorColors = {
   Gabarito: '#3182ce',
   Impressao: '#ffee00',
@@ -12,16 +12,44 @@ const setorColors = {
   Costura: '#d53f8c',
   Embalagem: '#805ad5',
   Finalizado: '#00ff00',
+  Admin: '#3182ce',
   default: '#3182ce'
 };
 
-function LinhaTempoHistorico({ movimentacoes }) {
+function formatarDataBR(data) {
+  if (!data) return '-';
+  let dataStr = typeof data === 'string' ? data.replace(' ', 'T') : data;
+  if (typeof dataStr === 'string' && !dataStr.endsWith('Z')) dataStr += 'Z';
+  try {
+    return new Date(dataStr).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'America/Recife'
+    });
+  } catch {
+    return '-';
+  }
+}
+
+function LinhaTempoHistorico({ movimentacoes, usuarioAtual }) {
+  // Filtra para só mostrar movimentação do admin para o próprio admin
+  const filtradas = usuarioAtual?.toLowerCase() === 'admin'
+    ? movimentacoes
+    : movimentacoes.filter(m => 
+        (m.setor_origem?.toLowerCase() !== 'admin') &&
+        (m.funcionarioEnvio?.toLowerCase() !== 'admin')
+      );
+
   // começa aberto no último (mais recente)
-  const [expandido, setExpandido] = useState(movimentacoes.length - 1);
+  const [expandido, setExpandido] = useState(filtradas.length - 1);
 
   useEffect(() => {
-    setExpandido(movimentacoes.length - 1);
-  }, [movimentacoes]);
+    setExpandido(filtradas.length - 1);
+  }, [filtradas.length]);
 
   return (
     <div style={{
@@ -31,12 +59,13 @@ function LinhaTempoHistorico({ movimentacoes }) {
       marginBottom: 12,
       position: 'relative'
     }}>
-      {movimentacoes.map((m, idx) => {
+      {filtradas.map((m, idx) => {
         const cor = setorColors[m.setor_destino] || setorColors.default;
         const aberto = expandido === idx;
+        const dataLocal = formatarDataBR(m.data);
 
         return (
-          <div key={m.id} style={{ marginBottom: idx === movimentacoes.length - 1 ? 0 : 18, position: 'relative' }}>
+          <div key={m.id} style={{ marginBottom: idx === filtradas.length - 1 ? 0 : 18, position: 'relative' }}>
             {/* Bolinha colorida do setor */}
             <div style={{
               position: 'absolute',
@@ -96,7 +125,7 @@ function LinhaTempoHistorico({ movimentacoes }) {
                   </div>
                 )}
                 <div style={{ fontSize: 14, color: '#888' }}>
-                  <strong>Data/hora:</strong> {m.data ? new Date(m.data).toLocaleString() : '-'}
+                  <strong>Data/hora:</strong> {dataLocal}
                 </div>
               </div>
             )}
@@ -107,14 +136,15 @@ function LinhaTempoHistorico({ movimentacoes }) {
   );
 }
 
+
 // ---- ModalVisualizar Completo ----
 
 const ModalVisualizar = ({ pedido, onClose, usuarioAtual }) => {
   const [movimentacoes, setMovimentacoes] = useState([]);
-  const isAdmin = usuarioAtual?.toLowerCase() === 'admin';
+  const podeVerHistorico = !!usuarioAtual;
 
   useEffect(() => {
-    if (isAdmin && pedido.id) {
+    if (podeVerHistorico && pedido.id) {
       const buscarHistorico = async () => {
         const { data, error } = await supabase
           .from('movimentacoes')
@@ -125,7 +155,7 @@ const ModalVisualizar = ({ pedido, onClose, usuarioAtual }) => {
       };
       buscarHistorico();
     }
-  }, [isAdmin, pedido.id]);
+  }, [podeVerHistorico, pedido.id]);
 
   // Helpers
   const criarDataLocal = (dataStr) => {
@@ -142,7 +172,7 @@ const ModalVisualizar = ({ pedido, onClose, usuarioAtual }) => {
 
   const dataEntregaLocal = criarDataLocal(pedido.dataEntrega);
   const dataFormatada = dataEntregaLocal
-    ? dataEntregaLocal.toLocaleDateString()
+    ? dataEntregaLocal.toLocaleDateString('pt-BR')
     : '-';
 
   let imagensExtras = [];
@@ -155,6 +185,9 @@ const ModalVisualizar = ({ pedido, onClose, usuarioAtual }) => {
   } catch {
     imagensExtras = [];
   }
+
+  // PDF e outros métodos (inalterados)...
+  // ...[continua igual]
 
   // PDF
   const getBase64ImageFromUrl = async (imageUrl) => {
@@ -469,12 +502,12 @@ const ModalVisualizar = ({ pedido, onClose, usuarioAtual }) => {
           </>
         )}
 
-        {/* HISTÓRICO COM CORES E EXPANSÍVEL */}
-        {isAdmin && (
+        {/* HISTÓRICO PARA TODOS OS USUÁRIOS */}
+        {podeVerHistorico && (
           <div style={{ margin: '32px 0 12px 0' }}>
             <h3>Histórico da Atividade</h3>
             {movimentacoes.length > 0 ? (
-              <LinhaTempoHistorico movimentacoes={movimentacoes} />
+              <LinhaTempoHistorico movimentacoes={movimentacoes} usuarioAtual={usuarioAtual} />
             ) : (
               <div style={{ color: '#999', paddingLeft: 28 }}>Nenhuma movimentação encontrada para este pedido.</div>
             )}
