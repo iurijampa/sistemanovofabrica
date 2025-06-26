@@ -3,7 +3,6 @@ import { supabase } from '../supabaseClient';
 import { gerarPDFPedido } from '../utils/gerarPDFPedido';
 import { FaFilePdf } from 'react-icons/fa';
 
-// Setores para filtro (adicione mais se precisar)
 const listaSetores = [
   '',
   'Gabarito',
@@ -18,7 +17,7 @@ const Historico = ({ setorUsuario }) => {
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [carregando, setCarregando] = useState(true);
 
-  // Novos estados para filtro
+  // Filtros para busca
   const [filtroTexto, setFiltroTexto] = useState('');
   const [filtroSetor, setFiltroSetor] = useState('');
 
@@ -43,8 +42,8 @@ const Historico = ({ setorUsuario }) => {
       if (error) {
         console.error('Erro ao carregar movimentações:', error.message);
       } else {
-        // Filtro por setor (se não for admin, só mostra mov do setor)
         let resultado = data;
+        // Setores só enxergam suas próprias movimentações
         if (setorUsuario && setorUsuario !== 'admin') {
           const setor = setorUsuario.toLowerCase();
           resultado = data.filter(
@@ -61,57 +60,62 @@ const Historico = ({ setorUsuario }) => {
     carregarMovimentacoes();
   }, [setorUsuario]);
 
-  // Função para montar o objeto pedido (usa fallback se faltar campo)
-  const montarPedido = (mov) => {
-    return {
-      pedido: mov.atividade?.pedido || mov.pedido_id || '',
-      cliente: mov.atividade?.cliente || '',
-      descricao: mov.atividade?.descricao || '',
-      imagem: mov.atividade?.imagem || '',
-      imagensExtras: mov.atividade?.imagensExtras || '[]',
-      setorAtual: mov.atividade?.setorAtual || mov.setor_destino || '',
-      dataEntrega: mov.atividade?.dataEntrega || '',
-    };
-  };
+  // Função para montar o objeto pedido
+  const montarPedido = (mov) => ({
+    pedido: mov.atividade?.pedido || mov.pedido_id || '',
+    cliente: mov.atividade?.cliente || '',
+    descricao: mov.atividade?.descricao || '',
+    imagem: mov.atividade?.imagem || '',
+    imagensExtras: mov.atividade?.imagensExtras || '[]',
+    setorAtual: mov.atividade?.setorAtual || mov.setor_destino || '',
+    dataEntrega: mov.atividade?.dataEntrega || '',
+  });
 
-  // FILTRO: só admins veem os filtros
+  // --- FILTRO (ajustado para todos) ---
+  const texto = filtroTexto.trim().toLowerCase();
   const filtrados = movimentacoes.filter((mov) => {
-    if (setorUsuario !== 'admin') return true;
-    const texto = filtroTexto.trim().toLowerCase();
+    // Setores só veem suas próprias movimentações
+    if (setorUsuario && setorUsuario !== 'admin') {
+      const setor = setorUsuario.toLowerCase();
+      const isDoSetor =
+        (mov.setor_origem && mov.setor_origem.toLowerCase() === setor) ||
+        (mov.setor_destino && mov.setor_destino.toLowerCase() === setor);
+      if (!isDoSetor) return false;
+    }
 
-    // Verifica os campos relevantes para filtro de texto
-    const nomeCliente = mov.atividade?.cliente?.toLowerCase() || '';
-    const nomePedido = mov.atividade?.pedido?.toLowerCase() || '';
-    const setores = [mov.setor_origem, mov.setor_destino, mov.atividade?.setorAtual]
-      .map(s => s ? s.toLowerCase() : '')
-      .filter(Boolean);
+    // Busca textual para todos
+    if (texto) {
+      const nomeCliente = mov.atividade?.cliente?.toLowerCase() || '';
+      const nomePedido = mov.atividade?.pedido?.toLowerCase() || '';
+      if (!nomeCliente.includes(texto) && !nomePedido.includes(texto)) return false;
+    }
 
-    const filtroSetorOk = !filtroSetor || setores.includes(filtroSetor.toLowerCase());
+    // Filtro de setor do select só para admin
+    if (setorUsuario === 'admin' && filtroSetor) {
+      const setores = [mov.setor_origem, mov.setor_destino, mov.atividade?.setorAtual]
+        .map(s => s ? s.toLowerCase() : '')
+        .filter(Boolean);
+      if (!setores.includes(filtroSetor.toLowerCase())) return false;
+    }
 
-    return (
-      filtroSetorOk &&
-      (
-        !texto ||
-        nomeCliente.includes(texto) ||
-        nomePedido.includes(texto)
-      )
-    );
+    return true;
   });
 
   return (
     <div>
       <h2>Histórico de Movimentações</h2>
 
-      {/* Filtros só para admin */}
-      {setorUsuario === 'admin' && (
-        <div style={{ marginBottom: 16, display: 'flex', gap: 12 }}>
-          <input
-            type="text"
-            placeholder="Buscar por pedido"
-            value={filtroTexto}
-            onChange={e => setFiltroTexto(e.target.value)}
-            style={{ padding: 8, minWidth: 180 }}
-          />
+      {/* Barra de busca para todos, filtro de setor só admin */}
+      <div style={{ marginBottom: 16, display: 'flex', gap: 12 }}>
+        <input
+          type="text"
+          placeholder="Buscar por pedido ou cliente"
+          value={filtroTexto}
+          onChange={e => setFiltroTexto(e.target.value)}
+          style={{ padding: 8, minWidth: 180 }}
+        />
+
+        {setorUsuario === 'admin' && (
           <select
             value={filtroSetor}
             onChange={e => setFiltroSetor(e.target.value)}
@@ -122,8 +126,8 @@ const Historico = ({ setorUsuario }) => {
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
-        </div>
-      )}
+        )}
+      </div>
 
       {carregando ? (
         <p>Carregando...</p>
