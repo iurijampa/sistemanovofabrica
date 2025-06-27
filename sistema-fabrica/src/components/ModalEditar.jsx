@@ -23,11 +23,12 @@ const ModalEditar = ({ pedido, onClose, onSalvar }) => {
     imagensExtras: parseImagensExtras(pedido.imagensExtras),
   });
 
-  const [urgente, setUrgente] = useState(!!pedido.urgente); // NOVO
+  const [tipoProduto, setTipoProduto] = useState(pedido.tipo_produto || '');
+  const [urgente, setUrgente] = useState(!!pedido.urgente);
   const [imagemPrincipalArquivo, setImagemPrincipalArquivo] = useState(null);
   const [novasImagensExtras, setNovasImagensExtras] = useState([]);
 
-  // Sincroniza formData e urgente quando pedido mudar
+  // Sincroniza formData, urgente e tipoProduto quando pedido mudar
   useEffect(() => {
     setFormData({
       id: pedido.id,
@@ -39,8 +40,9 @@ const ModalEditar = ({ pedido, onClose, onSalvar }) => {
       imagem: pedido.imagem || '',
       imagensExtras: parseImagensExtras(pedido.imagensExtras),
     });
-    setUrgente(!!pedido.urgente); // NOVO
+    setUrgente(!!pedido.urgente);
     setNovasImagensExtras([]);
+    setTipoProduto(pedido.tipo_produto || '');
   }, [pedido]);
 
   // Atualiza campos simples do form
@@ -77,8 +79,12 @@ const ModalEditar = ({ pedido, onClose, onSalvar }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    let atualizacoes = { ...formData, urgente: !!urgente }; // <- Inclui urgente
-console.log("OBJETO ENVIADO PARA SALVAR:", atualizacoes);
+    let atualizacoes = {
+      ...formData,
+      urgente: !!urgente,
+      tipo_produto: tipoProduto,
+    };
+
     // Upload imagem principal nova
     if (imagemPrincipalArquivo) {
       const fileName = `pedidos/${Date.now()}_${imagemPrincipalArquivo.name}`;
@@ -119,6 +125,51 @@ console.log("OBJETO ENVIADO PARA SALVAR:", atualizacoes);
         <button className="fecharModal" onClick={onClose}>×</button>
         <h2>Editar Pedido</h2>
         <form onSubmit={handleSubmit}>
+
+          {/* Tipo do Produto (colorido, visual igual ao cadastro) */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontWeight: 'bold', fontSize: 16 }}>Tipo do Produto:</label>
+            <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+              <label style={{
+                background: tipoProduto === 'sublimacao' ? '#3182ce' : '#f1f5fa',
+                color: tipoProduto === 'sublimacao' ? '#fff' : '#3182ce',
+                padding: '8px 20px',
+                borderRadius: 8,
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: '2px solid #3182ce',
+                boxShadow: tipoProduto === 'sublimacao' ? '0 2px 10px #3182ce40' : undefined
+              }}>
+                <input
+                  type="radio"
+                  value="sublimacao"
+                  checked={tipoProduto === 'sublimacao'}
+                  onChange={() => setTipoProduto('sublimacao')}
+                  style={{ marginRight: 8 }}
+                />
+                Sublimação
+              </label>
+              <label style={{
+                background: tipoProduto === 'algodao' ? '#22c55e' : '#f1f5fa',
+                color: tipoProduto === 'algodao' ? '#fff' : '#178445',
+                padding: '8px 20px',
+                borderRadius: 8,
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: '2px solid #22c55e',
+                boxShadow: tipoProduto === 'algodao' ? '0 2px 10px #22c55e40' : undefined
+              }}>
+                <input
+                  type="radio"
+                  value="algodao"
+                  checked={tipoProduto === 'algodao'}
+                  onChange={() => setTipoProduto('algodao')}
+                  style={{ marginRight: 8 }}
+                />
+                Algodão
+              </label>
+            </div>
+          </div>
 
           <label>
             Pedido:

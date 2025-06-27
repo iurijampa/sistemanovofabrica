@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './Dashboard.css';
 import { supabase } from '../supabaseClient';
+import TabelaAtividades from '../components/TabelaAtividades';
 import ResumoSetor from '../components/ResumoSetor';
 import {
   FaRuler,
@@ -40,26 +41,19 @@ const badgeColors = {
 
 const setoresComuns = ['gabarito', 'impressao', 'batida', 'costura', 'embalagem'];
 
-// Marca o pedido como visualizado para aquele setor e movimentação
 const marcarVisualizado = (pedidoId, setor, dataEnvio) => {
   const chave = `visualizado_${pedidoId}_${setor}`;
   localStorage.setItem(chave, String(new Date(dataEnvio).getTime()));
 };
 
-// Mostra NOVO se: movimentado há menos de 5min ou não visualizado após a movimentação
 const isNovo = (pedidoId, setor, dataEnvio) => {
   if (!dataEnvio) return false;
   const dataMov = new Date(dataEnvio).getTime();
   const agora = Date.now();
-
-  // Some após 5 minutos da movimentação
   if (agora - dataMov > 300000) return false;
-
-  // Some também se o usuário visualizou depois da movimentação
   const chave = `visualizado_${pedidoId}_${setor}`;
   const ultimoVisualizado = Number(localStorage.getItem(chave));
   if (ultimoVisualizado && ultimoVisualizado >= dataMov) return false;
-
   return true;
 };
 
@@ -98,7 +92,6 @@ const Dashboard = ({
   const [contadorSetor, setContadorSetor] = useState({ fila: 0, concluidas: 0 });
   const [visualizados, setVisualizados] = useState({});
 
-  // CONTAGEM ADMIN
   useEffect(() => {
     const buscarContagemPorSetor = async () => {
       const { data, error } = await supabase
@@ -125,29 +118,23 @@ const Dashboard = ({
     }
   }, [isAdmin]);
 
-  // CONTAGEM SETOR
   useEffect(() => {
     const buscarContagemSetor = async () => {
       if (!usuarioAtual || usuarioAtual === 'admin') return;
-
       const { count: fila, error: erroFila } = await supabase
         .from('atividades')
         .select('*', { count: 'exact', head: true })
         .ilike('setorAtual', usuarioAtual);
-
       const { count: concluidas, error: erroConcluidas } = await supabase
         .from('movimentacoes')
         .select('*', { count: 'exact', head: true })
         .ilike('setor_origem', usuarioAtual);
-
       if (erroFila || erroConcluidas) {
         console.error('Erro ao buscar contagem do setor', erroFila || erroConcluidas);
         return;
       }
-
       setContadorSetor({ fila, concluidas });
     };
-
     buscarContagemSetor();
   }, [usuarioAtual]);
 
@@ -162,7 +149,6 @@ const Dashboard = ({
   };
 
   const normalizar = (str) => str?.toString().toLowerCase().trim() || '';
-
   const setorFiltroAtivo = setorCardSelecionado || setorFiltro;
 
   const atividadesFiltradas = atividades.filter((a) => {
@@ -171,15 +157,12 @@ const Dashboard = ({
       (aba === 'andamento' ? a.setorAtual !== 'Finalizado' : a.setorAtual === 'Finalizado');
     const termo = normalizar(filtro);
     const setorOk = !setorFiltroAtivo || a.setorAtual === setorFiltroAtivo;
-
     if (!termo && setorOk && statusOk) return true;
-
     const pedido = normalizar(a.pedido);
     const cliente = normalizar(a.cliente);
     const dataEntregaFormatada = a.dataEntrega
       ? criarDataLocal(a.dataEntrega).toLocaleDateString()
       : '';
-
     return (
       setorOk &&
       statusOk &&
@@ -196,11 +179,17 @@ const Dashboard = ({
     }
     if (a.setorAtual === 'Embalagem' && b.setorAtual !== 'Embalagem') return -1;
     if (b.setorAtual === 'Embalagem' && a.setorAtual !== 'Embalagem') return 1;
-
     const dataA = criarDataLocal(a.dataEntrega);
     const dataB = criarDataLocal(b.dataEntrega);
     return dataA - dataB;
   });
+
+  const atividadesSublimacao = atividadesOrdenadas.filter(
+    (a) => (a.tipo_produto || '').toLowerCase() === 'sublimacao'
+  );
+  const atividadesAlgodao = atividadesOrdenadas.filter(
+    (a) => (a.tipo_produto || '').toLowerCase() === 'algodao'
+  );
 
   const deveMostrarBotaoRetornar = (setor, usuarioAtual) => {
     return (
@@ -223,18 +212,16 @@ const Dashboard = ({
     setFiltro('');
   };
 
-  // 👁️ Marcar visualizado: salva timestamp igual ao da movimentação
   const handleVisualizar = (a) => {
     onVisualizar(a);
     if (a.setorAtual && a.id && a.dataEnvio) {
       marcarVisualizado(a.id, a.setorAtual, a.dataEnvio);
-      setVisualizados(v => ({ ...v, [`${a.id}_${a.setorAtual}`]: Date.now() })); // força re-render
+      setVisualizados(v => ({ ...v, [`${a.id}_${a.setorAtual}`]: Date.now() }));
     }
   };
 
-  // Re-render automático para sumir badge após 5 min
   useEffect(() => {
-    const timer = setInterval(() => setVisualizados(v => ({ ...v })), 30000); // a cada 30s
+    const timer = setInterval(() => setVisualizados(v => ({ ...v })), 30000);
     return () => clearInterval(timer);
   }, []);
 
@@ -388,223 +375,62 @@ const Dashboard = ({
         )}
       </div>
 
-      <h2>Atividades</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Foto</th>
-            <th>Pedido</th>
-            <th>Cliente</th>
-            <th>Setor Atual</th>
-            <th>Data de Entrega</th>
-            <th>Enviado Por</th>
-            <th>Observação</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {atividadesOrdenadas.map((a) => {
-            const setorParaNovo = isAdmin ? a.setorAtual : usuarioAtual;
-            const mostrarNovo = a.setorAtual && isNovo(a.id, setorParaNovo, a.dataEnvio);
+      {/* TABELA: Usa o componente novo */}
+      {usuarioAtual === 'impressao' ? (
+  <div style={{ display: 'flex', gap: 32, marginTop: 32, flexWrap: 'wrap' }}>
+    {/* Sublimação */}
+    <div style={{ flex: 1, minWidth: 350 }}>
+      <TabelaAtividades
+        atividades={atividadesSublimacao}
+        isAdmin={isAdmin}
+        usuarioAtual={usuarioAtual}
+        onVisualizar={handleVisualizar}
+        onAbrirEdicao={onAbrirEdicao}
+        onApagar={onApagar}
+        onRetornar={onRetornar}
+        onConcluir={onConcluir}
+        isNovo={isNovo}
+        badgeColors={badgeColors}
+        getPrazoBadgeClass={getPrazoBadgeClass}
+        tituloMoldura={`Sublimação (${atividadesSublimacao.length})`}
+        corMoldura="#3182ce"
+      />
+    </div>
+    {/* Algodão */}
+    <div style={{ flex: 1, minWidth: 350 }}>
+      <TabelaAtividades
+        atividades={atividadesAlgodao}
+        isAdmin={isAdmin}
+        usuarioAtual={usuarioAtual}
+        onVisualizar={handleVisualizar}
+        onAbrirEdicao={onAbrirEdicao}
+        onApagar={onApagar}
+        onRetornar={onRetornar}
+        onConcluir={onConcluir}
+        isNovo={isNovo}
+        badgeColors={badgeColors}
+        getPrazoBadgeClass={getPrazoBadgeClass}
+        tituloMoldura={`Algodão (${atividadesAlgodao.length})`}
+        corMoldura="#22c55e"
+      />
+    </div>
+  </div>
+) : (
+  <TabelaAtividades
+    atividades={atividadesOrdenadas}
+    isAdmin={isAdmin}
+    usuarioAtual={usuarioAtual}
+    onVisualizar={handleVisualizar}
+    onAbrirEdicao={onAbrirEdicao}
+    onApagar={onApagar}
+    onRetornar={onRetornar}
+    onConcluir={onConcluir}
+    isNovo={isNovo}
+    badgeColors={badgeColors}
+    getPrazoBadgeClass={getPrazoBadgeClass}
+  />
+)}
 
-            return (
-              <tr
-                key={a.id}
-                style={{
-                  background: a.statusRetorno
-                    ? '#fff8b0'
-                    : a.urgente
-                      ? 'red'
-                      : undefined,
-                  color: a.urgente ? '#fff' : undefined,
-                  fontWeight: a.urgente || a.statusRetorno ? 'bold' : undefined,
-                  fontSize: a.urgente ? '1.1em' : undefined,
-                  letterSpacing: a.urgente ? 2 : undefined,
-                  transition: 'background 0.3s',
-                }}
-              >
-                <td>
-                  {a.imagem ? (
-                    <img
-                      src={`https://images.weserv.nl/?url=${encodeURIComponent(a.imagem)}&w=60&h=60&fit=cover`}
-                      alt="Imagem principal"
-                      loading="lazy"
-                      style={{
-                        width: '60px',
-                        height: '60px',
-                        objectFit: 'cover',
-                        borderRadius: '4px',
-                        marginBottom: '4px',
-                        background: '#e0e0e0',
-                      }}
-                      onError={function handleThumbError(e) {
-                        if (e.target.dataset.fallback !== "original") {
-                          e.target.src = a.imagem;
-                          e.target.dataset.fallback = "original";
-                        } else {
-                          e.target.src = "https://via.placeholder.com/40x40?text=Erro";
-                        }
-                      }}
-                    />
-                  ) : (
-                    <span>Sem imagem</span>
-                  )}
-                  {/* IMAGENS EXTRAS */}
-                  {Array.isArray(a.imagensExtras) && a.imagensExtras.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-                      {a.imagensExtras.map((url, i) => (
-                        <img
-                          key={i}
-                          src={`https://images.weserv.nl/?url=${encodeURIComponent(url)}&w=40&h=40&fit=cover`}
-                          alt={`Imagem extra ${i}`}
-                          loading="lazy"
-                          style={{
-                            width: '40px',
-                            height: '40px',
-                            objectFit: 'cover',
-                            borderRadius: '4px',
-                            border: '1px solid #ccc',
-                          }}
-                          onError={function handleThumbError(e) {
-                            if (e.target.dataset.fallback !== "original") {
-                              e.target.src = url;
-                              e.target.dataset.fallback = "original";
-                            } else {
-                              e.target.src = "https://via.placeholder.com/40x40?text=Erro";
-                            }
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </td>
-                <td>
-                  {a.pedido}
-                  {mostrarNovo && (
-                    <span
-                      style={{
-                        marginLeft: 8,
-                        background: '#22c55e',
-                        color: '#fff',
-                        borderRadius: 7,
-                        padding: '2px 9px',
-                        fontWeight: 700,
-                        fontSize: '0.83em',
-                        animation: 'pulseNovo 1s infinite alternate',
-                        boxShadow: '0 0 10px #6ee7b7',
-                        verticalAlign: 'middle'
-                      }}
-                    >
-                      NOVO
-                    </span>
-                  )}
-                </td>
-                <td>
-                  {a.statusRetorno && (
-                    <span style={{
-                      background: '#e00',
-                      color: '#fff',
-                      borderRadius: 5,
-                      padding: '2px 6px',
-                      marginRight: 6,
-                      fontSize: '0.9em',
-                      letterSpacing: 1,
-                    }}>
-                      RETORNADO
-                    </span>
-                  )}
-                  {a.urgente && (
-                    <span style={{
-                      fontSize: '0.95em',
-                      marginRight: 10,
-                      background: '#fff3',
-                      padding: '2px 12px',
-                      borderRadius: 6,
-                      verticalAlign: 'middle',
-                      display: 'inline-block',
-                      marginBottom: 4,
-                      marginTop: 2,
-                      boxShadow: '0 2px 10px #f001',
-                      animation: 'pulseUrgente 1s infinite alternate',
-                      color: '#fff',
-                    }}>
-                      🚨 URGENTE
-                    </span>
-                  )}
-                  <span style={{ verticalAlign: 'middle' }}>{a.cliente}</span>
-                </td>
-                <td>
-                  <span className={`badge badge-setor ${badgeColors[a.setorAtual] || ''}`}>
-                    {a.setorAtual}
-                  </span>
-                </td>
-                <td>
-                  <span className={`badge badge-prazo ${getPrazoBadgeClass(a.dataEntrega)}`}>
-                    {a.dataEntrega ? criarDataLocal(a.dataEntrega).toLocaleDateString() : '-'}
-                  </span>
-                </td>
-                <td>
-                  {a.funcionarioEnvio || '-'}
-                  {a.dataEnvio && (
-                    <div style={{ fontSize: '0.8em', color: '#666' }}>
-                      {new Date(a.dataEnvio).toLocaleString()}
-                    </div>
-                  )}
-                </td>
-                <td>{a.observacaoEnvio || '-'}</td>
-                <td>
-                  <button
-                    title="Visualizar"
-                    onClick={() => handleVisualizar(a)}
-                    style={{ marginRight: '8px' }}
-                  >
-                    👁️
-                  </button>
-                  {isAdmin && (
-                    <>
-                      <button
-                        title="Editar"
-                        onClick={() => onAbrirEdicao(a)}
-                        style={{ marginRight: '8px' }}
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        title="Apagar"
-                        onClick={() => {
-                          if (window.confirm('Quer mesmo apagar este pedido?')) {
-                            onApagar(a.id);
-                          }
-                        }}
-                      >
-                        🗑️
-                      </button>
-                    </>
-                  )}
-                  {deveMostrarBotaoRetornar(a.setorAtual, usuarioAtual) && (
-                    <button
-                      title="Retornar para o setor anterior"
-                      onClick={() => onRetornar(a)}
-                      style={{ marginLeft: '8px', marginRight: '8px' }}
-                    >
-                      🔙
-                    </button>
-                  )}
-                  {usuarioAtual !== 'finalizado' && a.setorAtual.toLowerCase() !== 'finalizado' && (
-                    <button
-                      title="Concluir e enviar para o próximo setor"
-                      onClick={() => onConcluir(a)}
-                      style={{ marginLeft: '8px' }}
-                    >
-                      ✅
-                    </button>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
     </div>
   );
 };

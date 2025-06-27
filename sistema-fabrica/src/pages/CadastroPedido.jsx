@@ -2,24 +2,11 @@ import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import './CadastroPedido.css';
 
-// Lista de malhas
 const LISTA_MALHAS = [
-  "dryfit",
-  "dry jersie",
-  "helanquinha",
-  "aerodry",
-  "dry tec",
-  "dry solution",
-  "piquet de poliester",
-  "piquet de algodão",
-  "dry manchester",
-  "dry nba",
-  "uv ft50",
-  "helanca colegial",
-  "poliester",
-  "oxford",
-  "tactel",
-  "ribana"
+  "dryfit", "dry jersie", "helanquinha", "aerodry", "dry tec",
+  "dry solution", "piquet de poliester", "piquet de algodão",
+  "dry manchester", "dry nba", "uv ft50", "helanca colegial",
+  "poliester", "oxford", "tactel", "ribana"
 ];
 
 const CadastroPedido = ({ onCadastrar }) => {
@@ -31,10 +18,11 @@ const CadastroPedido = ({ onCadastrar }) => {
   const [setorAtual, setSetorAtual] = useState('');
   const [dataEntrega, setDataEntrega] = useState('');
   const [urgente, setUrgente] = useState(false);
-
-  // Novos estados internos para estoque
   const [malha, setMalha] = useState('');
   const [quantidade, setQuantidade] = useState(1);
+
+  // Estado do tipo do produto
+  const [tipoProduto, setTipoProduto] = useState('');
 
   const handleAdicionarImagemExtra = (e) => {
     const arquivos = Array.from(e.target.files);
@@ -44,6 +32,10 @@ const CadastroPedido = ({ onCadastrar }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!tipoProduto) {
+      alert('Selecione o tipo do produto.');
+      return;
+    }
     if (!imagemPrincipal) {
       alert('Selecione a imagem principal');
       return;
@@ -51,7 +43,6 @@ const CadastroPedido = ({ onCadastrar }) => {
 
     // Atualizar estoque antes de cadastrar pedido
     if (malha && quantidade > 0) {
-      // Procura a malha no estoque
       const { data: estoque, error: erroEstoque } = await supabase
         .from('estoque')
         .select('id, quantidade')
@@ -66,7 +57,6 @@ const CadastroPedido = ({ onCadastrar }) => {
         alert('Estoque insuficiente para essa malha!');
         return;
       }
-      // Atualiza a quantidade subtraindo
       await supabase
         .from('estoque')
         .update({ quantidade: estoque.quantidade - quantidade })
@@ -91,7 +81,6 @@ const CadastroPedido = ({ onCadastrar }) => {
 
     // Upload das imagens extras
     const urlsExtras = [];
-
     for (const imagem of imagensExtras) {
       const filePath = `${Date.now()}_${imagem.name}`;
       const { error } = await supabase.storage
@@ -112,9 +101,7 @@ const CadastroPedido = ({ onCadastrar }) => {
       setorAtual,
       dataEntrega: new Date(dataEntrega).toISOString(),
       urgente,
-      // Se quiser salvar essa info no registro da atividade, pode incluir:
-      // malha,
-      // quantidade,
+      tipo_produto: tipoProduto
     };
 
     await onCadastrar(novaAtividade);
@@ -131,12 +118,60 @@ const CadastroPedido = ({ onCadastrar }) => {
     setUrgente(false);
     setMalha('');
     setQuantidade(1);
+    setTipoProduto('');
   };
 
   return (
     <div className="form-container">
       <h1>Cadastro de Pedido</h1>
       <form onSubmit={handleSubmit}>
+
+        {/* TIPO DO PRODUTO NO TOPO, COLORIDO */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontWeight: 'bold', fontSize: 16 }}>Tipo do Produto:</label>
+          <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+            <label style={{
+              background: tipoProduto === 'sublimacao' ? '#3182ce' : '#f1f5fa',
+              color: tipoProduto === 'sublimacao' ? '#fff' : '#3182ce',
+              padding: '8px 20px',
+              borderRadius: 8,
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: '2px solid #3182ce',
+              boxShadow: tipoProduto === 'sublimacao' ? '0 2px 10px #3182ce40' : undefined
+            }}>
+              <input
+                type="radio"
+                value="sublimacao"
+                checked={tipoProduto === 'sublimacao'}
+                onChange={() => setTipoProduto('sublimacao')}
+                style={{ marginRight: 8 }}
+              />
+              Sublimação
+            </label>
+            <label style={{
+              background: tipoProduto === 'algodao' ? '#22c55e' : '#f1f5fa',
+              color: tipoProduto === 'algodao' ? '#fff' : '#178445',
+              padding: '8px 20px',
+              borderRadius: 8,
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: '2px solid #22c55e',
+              boxShadow: tipoProduto === 'algodao' ? '0 2px 10px #22c55e40' : undefined
+            }}>
+              <input
+                type="radio"
+                value="algodao"
+                checked={tipoProduto === 'algodao'}
+                onChange={() => setTipoProduto('algodao')}
+                style={{ marginRight: 8 }}
+              />
+              Algodão
+            </label>
+          </div>
+        </div>
+
+        {/* RESTANTE DO FORMULÁRIO */}
         <label>
           Nome do Pedido:
           <input type="text" value={pedido} onChange={(e) => setPedido(e.target.value)} required />
@@ -177,7 +212,10 @@ const CadastroPedido = ({ onCadastrar }) => {
                 <img
                   src={URL.createObjectURL(img)}
                   alt={`Extra ${index}`}
-                  style={{ width: '80px', height: '80px', objectFit: 'cover', border: '1px solid #ccc', borderRadius: '4px' }}
+                  style={{
+                    width: '80px', height: '80px',
+                    objectFit: 'cover', border: '1px solid #ccc', borderRadius: '4px'
+                  }}
                 />
                 <button
                   type="button"
@@ -187,16 +225,10 @@ const CadastroPedido = ({ onCadastrar }) => {
                   }}
                   style={{
                     position: 'absolute',
-                    top: '2px',
-                    right: '2px',
+                    top: '2px', right: '2px',
                     background: 'rgba(255, 0, 0, 0.8)',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '0 5px',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    lineHeight: '16px'
+                    color: '#fff', border: 'none', borderRadius: '4px',
+                    padding: '0 5px', fontSize: '12px', cursor: 'pointer', lineHeight: '16px'
                   }}
                 >
                   X
@@ -212,11 +244,7 @@ const CadastroPedido = ({ onCadastrar }) => {
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
             rows={6}
-            placeholder="Ex: 
-    DRYFIT
-- Camisa preta M (cliente João)
-- Camisa branca G (cliente Maria)
-- 1 X G - 10 - FULANO"
+            placeholder="Ex: DRYFIT - Camisa preta M (cliente João)..."
             style={{
               width: '100%',
               minHeight: '120px',
@@ -248,7 +276,6 @@ const CadastroPedido = ({ onCadastrar }) => {
           </select>
         </label>
 
-        {/* --- CAMPO INTERNO DE ESTOQUE (agora como dropdown, nomes maiúsculo) --- */}
         <div style={{ margin: '18px 0', padding: '12px', background: '#f7f7f7', borderRadius: 8 }}>
           <label>
             Malha (uso interno):
@@ -276,7 +303,6 @@ const CadastroPedido = ({ onCadastrar }) => {
           </label>
         </div>
 
-        {/* CAMPO URGENTE MELHORADO */}
         <div
           style={{
             display: 'flex',
