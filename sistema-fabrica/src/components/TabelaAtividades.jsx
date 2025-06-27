@@ -39,8 +39,8 @@ const TabelaAtividades = ({
   isNovo,
   badgeColors,
   getPrazoBadgeClass,
-  tituloMoldura,    // NOVO: para mostrar o nome do grupo (opcional)
-  corMoldura        // NOVO: cor para a moldura (opcional)
+  tituloMoldura,
+  corMoldura
 }) => {
   const isImpressao = usuarioAtual === 'impressao';
 
@@ -229,13 +229,18 @@ const TabelaAtividades = ({
                   </>
                 )}
                 <td>
-                  {/* Botões um abaixo do outro */}
-                  <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 4,
-                    alignItems: 'center'
-                  }}>
+                  {/* Botões grid admin / coluna funcionário */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: isAdmin ? '1fr 1fr' : '1fr',
+                      gap: 4,
+                      alignItems: 'center',
+                      justifyItems: 'center',
+                      minWidth: 56,
+                      margin: '0 auto',
+                    }}
+                  >
                     <button title="Visualizar" onClick={() => onVisualizar(a)}>
                       👁️
                     </button>
@@ -276,7 +281,6 @@ const TabelaAtividades = ({
     </div>
   );
 
-  // Só aplica a moldura se for impressão E tiver titulo/cor passada (para sublimação/algodão)
   if (isImpressao && tituloMoldura && corMoldura) {
     return (
       <Moldura cor={corMoldura} titulo={tituloMoldura}>
