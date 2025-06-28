@@ -225,6 +225,10 @@ const Dashboard = ({
     return () => clearInterval(timer);
   }, []);
 
+  // --- AQUI O PONTO DO AJUSTE ---
+  const adminVisualizandoImpressao =
+    isAdmin && (setorCardSelecionado === 'Impressao' || setorFiltro === 'Impressao');
+
   return (
     <div className="dashboard">
       <h1>Dashboard</h1>
@@ -375,62 +379,100 @@ const Dashboard = ({
         )}
       </div>
 
-      {/* TABELA: Usa o componente novo */}
-      {usuarioAtual === 'impressao' ? (
-  <div style={{ display: 'flex', gap: 32, marginTop: 32, flexWrap: 'wrap' }}>
-    {/* Sublimação */}
-    <div style={{ flex: 1, minWidth: 350 }}>
-      <TabelaAtividades
-        atividades={atividadesSublimacao}
-        isAdmin={isAdmin}
-        usuarioAtual={usuarioAtual}
-        onVisualizar={handleVisualizar}
-        onAbrirEdicao={onAbrirEdicao}
-        onApagar={onApagar}
-        onRetornar={onRetornar}
-        onConcluir={onConcluir}
-        isNovo={isNovo}
-        badgeColors={badgeColors}
-        getPrazoBadgeClass={getPrazoBadgeClass}
-        tituloMoldura={`Sublimação (${atividadesSublimacao.length})`}
-        corMoldura="#3182ce"
-      />
-    </div>
-    {/* Algodão */}
-    <div style={{ flex: 1, minWidth: 350 }}>
-      <TabelaAtividades
-        atividades={atividadesAlgodao}
-        isAdmin={isAdmin}
-        usuarioAtual={usuarioAtual}
-        onVisualizar={handleVisualizar}
-        onAbrirEdicao={onAbrirEdicao}
-        onApagar={onApagar}
-        onRetornar={onRetornar}
-        onConcluir={onConcluir}
-        isNovo={isNovo}
-        badgeColors={badgeColors}
-        getPrazoBadgeClass={getPrazoBadgeClass}
-        tituloMoldura={`Algodão (${atividadesAlgodao.length})`}
-        corMoldura="#22c55e"
-      />
-    </div>
-  </div>
-) : (
-  <TabelaAtividades
-    atividades={atividadesOrdenadas}
-    isAdmin={isAdmin}
-    usuarioAtual={usuarioAtual}
-    onVisualizar={handleVisualizar}
-    onAbrirEdicao={onAbrirEdicao}
-    onApagar={onApagar}
-    onRetornar={onRetornar}
-    onConcluir={onConcluir}
-    isNovo={isNovo}
-    badgeColors={badgeColors}
-    getPrazoBadgeClass={getPrazoBadgeClass}
-  />
-)}
-
+      {/* --- TABELA: LOGICA FINAL DE EXIBIÇÃO --- */}
+      {adminVisualizandoImpressao ? (
+        <div style={{ display: 'flex', gap: 32, marginTop: 32, flexWrap: 'wrap' }}>
+          {/* Sublimação */}
+          <div style={{ flex: 1, minWidth: 350 }}>
+            <TabelaAtividades
+              atividades={atividadesSublimacao}
+              isAdmin={isAdmin}
+              usuarioAtual="impressao"
+              onVisualizar={handleVisualizar}
+              onAbrirEdicao={onAbrirEdicao}
+              onApagar={onApagar}
+              onRetornar={onRetornar}
+              onConcluir={onConcluir}
+              isNovo={isNovo}
+              badgeColors={badgeColors}
+              getPrazoBadgeClass={getPrazoBadgeClass}
+              tituloMoldura={`Sublimação (${atividadesSublimacao.length})`}
+              corMoldura="#3182ce"
+            />
+          </div>
+          {/* Algodão */}
+          <div style={{ flex: 1, minWidth: 350 }}>
+            <TabelaAtividades
+              atividades={atividadesAlgodao}
+              isAdmin={isAdmin}
+              usuarioAtual="impressao"
+              onVisualizar={handleVisualizar}
+              onAbrirEdicao={onAbrirEdicao}
+              onApagar={onApagar}
+              onRetornar={onRetornar}
+              onConcluir={onConcluir}
+              isNovo={isNovo}
+              badgeColors={badgeColors}
+              getPrazoBadgeClass={getPrazoBadgeClass}
+              tituloMoldura={`Algodão (${atividadesAlgodao.length})`}
+              corMoldura="#22c55e"
+            />
+          </div>
+        </div>
+      ) : usuarioAtual === 'impressao' ? (
+        <div style={{ display: 'flex', gap: 32, marginTop: 32, flexWrap: 'wrap' }}>
+          {/* Sublimação */}
+          <div style={{ flex: 1, minWidth: 350 }}>
+            <TabelaAtividades
+              atividades={atividadesSublimacao}
+              isAdmin={isAdmin}
+              usuarioAtual={usuarioAtual}
+              onVisualizar={handleVisualizar}
+              onAbrirEdicao={onAbrirEdicao}
+              onApagar={onApagar}
+              onRetornar={onRetornar}
+              onConcluir={onConcluir}
+              isNovo={isNovo}
+              badgeColors={badgeColors}
+              getPrazoBadgeClass={getPrazoBadgeClass}
+              tituloMoldura={`Sublimação (${atividadesSublimacao.length})`}
+              corMoldura="#3182ce"
+            />
+          </div>
+          {/* Algodão */}
+          <div style={{ flex: 1, minWidth: 350 }}>
+            <TabelaAtividades
+              atividades={atividadesAlgodao}
+              isAdmin={isAdmin}
+              usuarioAtual={usuarioAtual}
+              onVisualizar={handleVisualizar}
+              onAbrirEdicao={onAbrirEdicao}
+              onApagar={onApagar}
+              onRetornar={onRetornar}
+              onConcluir={onConcluir}
+              isNovo={isNovo}
+              badgeColors={badgeColors}
+              getPrazoBadgeClass={getPrazoBadgeClass}
+              tituloMoldura={`Algodão (${atividadesAlgodao.length})`}
+              corMoldura="#22c55e"
+            />
+          </div>
+        </div>
+      ) : (
+        <TabelaAtividades
+          atividades={atividadesOrdenadas}
+          isAdmin={isAdmin}
+          usuarioAtual={usuarioAtual}
+          onVisualizar={handleVisualizar}
+          onAbrirEdicao={onAbrirEdicao}
+          onApagar={onApagar}
+          onRetornar={onRetornar}
+          onConcluir={onConcluir}
+          isNovo={isNovo}
+          badgeColors={badgeColors}
+          getPrazoBadgeClass={getPrazoBadgeClass}
+        />
+      )}
     </div>
   );
 };
