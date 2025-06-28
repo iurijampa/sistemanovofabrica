@@ -27,6 +27,14 @@ const Moldura = ({ cor, titulo, children }) => (
   </div>
 );
 
+// Função para mostrar data no formato DD/MM/AAAA corretamente
+function formatarDataBR(dataStr) {
+  if (!dataStr) return '-';
+  const [data] = dataStr.split('T');
+  const [ano, mes, dia] = data.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+
 const TabelaAtividades = ({
   atividades,
   isAdmin,
@@ -77,8 +85,8 @@ const TabelaAtividades = ({
                   background: a.statusRetorno
                     ? '#fff8b0'
                     : a.urgente
-                    ? 'red'
-                    : undefined,
+                      ? 'red'
+                      : undefined,
                   color: a.urgente ? '#fff' : undefined,
                   fontWeight: a.urgente || a.statusRetorno ? 'bold' : undefined,
                   fontSize: a.urgente ? '1.1em' : undefined,
@@ -87,58 +95,52 @@ const TabelaAtividades = ({
                 }}
               >
                 <td>
-                  {a.imagem ? (
-                    <img
-                      src={`https://images.weserv.nl/?url=${encodeURIComponent(a.imagem)}&w=40&h=40&fit=cover`}
-                      alt="Imagem principal"
-                      loading="lazy"
-                      style={{
-                        width: 40,
-                        height: 40,
-                        objectFit: 'cover',
-                        borderRadius: 4,
-                        background: '#e0e0e0',
-                      }}
-                      onError={function handleThumbError(e) {
-                        if (e.target.dataset.fallback !== "original") {
-                          e.target.src = a.imagem;
-                          e.target.dataset.fallback = "original";
-                        } else {
+                  {/* SÓ MOSTRA A IMAGEM SE NÃO ESTIVER FINALIZADO */}
+                  {a.setorAtual !== "Finalizado" ? (
+                    a.thumb ? (
+                      <img
+                        src={a.thumb}
+                        alt="Thumb principal"
+                        loading="lazy"
+                        style={{
+                          width: 40,
+                          height: 40,
+                          objectFit: 'cover',
+                          borderRadius: 4,
+                          background: '#e0e0e0',
+                        }}
+                        onError={function handleThumbError(e) {
+                          if (e.target.dataset.fallback !== "original") {
+                            e.target.src = a.imagem;
+                            e.target.dataset.fallback = "original";
+                          } else {
+                            e.target.src = "https://via.placeholder.com/40x40?text=Erro";
+                          }
+                        }}
+                      />
+                    ) : a.imagem ? (
+                      <img
+                        src={a.imagem}
+                        alt="Imagem principal"
+                        loading="lazy"
+                        style={{
+                          width: 40,
+                          height: 40,
+                          objectFit: 'cover',
+                          borderRadius: 4,
+                          background: '#e0e0e0',
+                        }}
+                        onError={function handleThumbError(e) {
                           e.target.src = "https://via.placeholder.com/40x40?text=Erro";
-                        }
-                      }}
-                    />
+                        }}
+                      />
+                    ) : (
+                      <span>Sem imagem</span>
+                    )
                   ) : (
-                    <span>Sem imagem</span>
+                    <span style={{ color: '#999' }}>-</span>
                   )}
-                  {/* Imagens extras */}
-                  {Array.isArray(a.imagensExtras) && a.imagensExtras.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 2 }}>
-                      {a.imagensExtras.map((url, i) => (
-                        <img
-                          key={i}
-                          src={`https://images.weserv.nl/?url=${encodeURIComponent(url)}&w=24&h=24&fit=cover`}
-                          alt={`Imagem extra ${i}`}
-                          loading="lazy"
-                          style={{
-                            width: 24,
-                            height: 24,
-                            objectFit: 'cover',
-                            borderRadius: 3,
-                            border: '1px solid #ccc',
-                          }}
-                          onError={function handleThumbError(e) {
-                            if (e.target.dataset.fallback !== "original") {
-                              e.target.src = url;
-                              e.target.dataset.fallback = "original";
-                            } else {
-                              e.target.src = "https://via.placeholder.com/24x24?text=Erro";
-                            }
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
+                  {/* Imagens extras continuam aparecendo normalmente, pode ocultar também se quiser */}
                 </td>
                 <td>
                   {a.pedido}
@@ -197,7 +199,7 @@ const TabelaAtividades = ({
                 </td>
                 <td>
                   <span className={`badge badge-prazo ${getPrazoBadgeClass(a.dataEntrega)}`}>
-                    {a.dataEntrega ? new Date(a.dataEntrega).toLocaleDateString() : '-'}
+                    {formatarDataBR(a.dataEntrega)}
                   </span>
                 </td>
                 {isImpressao ? (

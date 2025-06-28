@@ -9,6 +9,57 @@ const LISTA_MALHAS = [
   "poliester", "oxford", "tactel", "ribana"
 ];
 
+// Compacta imagem original para largura máxima de 1000px, qualidade 0.8
+async function compactarImagem(file, larguraMax = 1000, qualidade = 0.8) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const img = new window.Image();
+      img.onload = function () {
+        let width = img.width;
+        let height = img.height;
+        if (width > larguraMax) {
+          height = Math.round((larguraMax / width) * height);
+          width = larguraMax;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        }, 'image/jpeg', qualidade);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Gera thumb pequena (exibição na tabela)
+async function gerarThumbImagem(file, larguraThumb = 80) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const img = new window.Image();
+      img.onload = function () {
+        const scale = larguraThumb / img.width;
+        const canvas = document.createElement('canvas');
+        canvas.width = larguraThumb;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        }, 'image/jpeg', 0.7);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 const CadastroPedido = ({ onCadastrar }) => {
   const [pedido, setPedido] = useState('');
   const [cliente, setCliente] = useState('');
@@ -20,8 +71,6 @@ const CadastroPedido = ({ onCadastrar }) => {
   const [urgente, setUrgente] = useState(false);
   const [malha, setMalha] = useState('');
   const [quantidade, setQuantidade] = useState(1);
-
-  // Estado do tipo do produto
   const [tipoProduto, setTipoProduto] = useState('');
 
   const handleAdicionarImagemExtra = (e) => {
@@ -63,11 +112,12 @@ const CadastroPedido = ({ onCadastrar }) => {
         .eq('id', estoque.id);
     }
 
-    // Upload da imagem principal
+    // Compactar imagem principal antes de subir
+    const imagemCompac = await compactarImagem(imagemPrincipal, 1000, 0.8);
     const filePathPrincipal = `${Date.now()}_${imagemPrincipal.name}`;
     const { error: erroPrincipal } = await supabase
       .storage.from('imagens')
-      .upload(filePathPrincipal, imagemPrincipal);
+      .upload(filePathPrincipal, imagemCompac);
 
     if (erroPrincipal) {
       alert('Erro ao enviar imagem principal');
@@ -79,7 +129,22 @@ const CadastroPedido = ({ onCadastrar }) => {
       .getPublicUrl(filePathPrincipal);
     const urlPrincipal = dataPrincipal.publicUrl;
 
-    // Upload das imagens extras
+    // Gerar e upload da thumbnail da imagem principal
+    const thumbBlob = await gerarThumbImagem(imagemPrincipal, 80);
+    const thumbPath = `thumbs/${Date.now()}_${imagemPrincipal.name}`;
+    const { error: erroThumb } = await supabase
+      .storage.from('imagens')
+      .upload(thumbPath, thumbBlob);
+
+    let urlThumb = '';
+    if (!erroThumb) {
+      const { data: dataThumb } = supabase.storage
+        .from('imagens')
+        .getPublicUrl(thumbPath);
+      urlThumb = dataThumb.publicUrl;
+    }
+
+    // Upload das imagens extras (não compacta aqui, mas pode fazer igual se quiser)
     const urlsExtras = [];
     for (const imagem of imagensExtras) {
       const filePath = `${Date.now()}_${imagem.name}`;
@@ -95,7 +160,8 @@ const CadastroPedido = ({ onCadastrar }) => {
     const novaAtividade = {
       pedido,
       cliente,
-      imagem: urlPrincipal,
+      imagem: urlPrincipal,      // original já compactada
+      thumb: urlThumb,           // thumbnail salva aqui
       imagensExtras: JSON.stringify(urlsExtras),
       descricao,
       setorAtual,
@@ -125,7 +191,6 @@ const CadastroPedido = ({ onCadastrar }) => {
     <div className="form-container">
       <h1>Cadastro de Pedido</h1>
       <form onSubmit={handleSubmit}>
-
         {/* TIPO DO PRODUTO NO TOPO, COLORIDO */}
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontWeight: 'bold', fontSize: 16 }}>Tipo do Produto:</label>
@@ -170,23 +235,18 @@ const CadastroPedido = ({ onCadastrar }) => {
             </label>
           </div>
         </div>
-
-        {/* RESTANTE DO FORMULÁRIO */}
         <label>
           Nome do Pedido:
           <input type="text" value={pedido} onChange={(e) => setPedido(e.target.value)} required />
         </label>
-
         <label>
           Nome do Cliente:
           <input type="text" value={cliente} onChange={(e) => setCliente(e.target.value)} required />
         </label>
-
         <label>
           Imagem Principal:
           <input type="file" accept="image/*" onChange={(e) => setImagemPrincipal(e.target.files[0])} required />
         </label>
-
         {imagemPrincipal && (
           <div style={{ marginBottom: '10px' }}>
             <img
@@ -199,12 +259,10 @@ const CadastroPedido = ({ onCadastrar }) => {
             </button>
           </div>
         )}
-
         <label>
           Imagens Adicionais:
           <input type="file" accept="image/*" multiple onChange={handleAdicionarImagemExtra} />
         </label>
-
         {imagensExtras.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
             {imagensExtras.map((img, index) => (
@@ -237,7 +295,6 @@ const CadastroPedido = ({ onCadastrar }) => {
             ))}
           </div>
         )}
-
         <label>
           Descrição do Pedido:
           <textarea
@@ -258,12 +315,10 @@ const CadastroPedido = ({ onCadastrar }) => {
             required
           />
         </label>
-
         <label>
           Data de Entrega:
           <input type="date" value={dataEntrega} onChange={(e) => setDataEntrega(e.target.value)} required />
         </label>
-
         <label>
           Setor Inicial:
           <select value={setorAtual} onChange={(e) => setSetorAtual(e.target.value)} required>
@@ -275,7 +330,6 @@ const CadastroPedido = ({ onCadastrar }) => {
             <option value="Embalagem">Embalagem</option>
           </select>
         </label>
-
         <div style={{ margin: '18px 0', padding: '12px', background: '#f7f7f7', borderRadius: 8 }}>
           <label>
             Malha (uso interno):
@@ -302,7 +356,6 @@ const CadastroPedido = ({ onCadastrar }) => {
             />
           </label>
         </div>
-
         <div
           style={{
             display: 'flex',
@@ -333,7 +386,6 @@ const CadastroPedido = ({ onCadastrar }) => {
             Marcar como URGENTE
           </label>
         </div>
-
         <button type="submit">Cadastrar Pedido</button>
       </form>
     </div>
