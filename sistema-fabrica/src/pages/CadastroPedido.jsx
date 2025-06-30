@@ -9,6 +9,20 @@ const LISTA_MALHAS = [
   "poliester", "oxford", "tactel", "ribana"
 ];
 
+// Função para registrar movimentação de estoque
+async function registrarMovimentacaoEstoque({ malha, quantidade, tipo, usuario, obs }) {
+  return supabase
+    .from('movimentacoes_estoque')
+    .insert([{
+      malha,
+      quantidade: Math.abs(Number(quantidade)),
+      tipo, // 'entrada' ou 'saida'
+      usuario,
+      obs,
+      data: new Date().toISOString(),
+    }]);
+}
+
 // Compacta imagem original para largura máxima de 1000px, qualidade 0.8
 async function compactarImagem(file, larguraMax = 1000, qualidade = 0.8) {
   return new Promise((resolve) => {
@@ -110,6 +124,15 @@ const CadastroPedido = ({ onCadastrar }) => {
         .from('estoque')
         .update({ quantidade: estoque.quantidade - quantidade })
         .eq('id', estoque.id);
+
+      // REGISTRA a saída do estoque
+      await registrarMovimentacaoEstoque({
+        malha,
+        quantidade,
+        tipo: 'saida',
+        usuario: cliente || 'sistema',
+        obs: `Saída para produção. Pedido: ${pedido} - Cliente: ${cliente}`,
+      });
     }
 
     // Compactar imagem principal antes de subir
@@ -144,7 +167,7 @@ const CadastroPedido = ({ onCadastrar }) => {
       urlThumb = dataThumb.publicUrl;
     }
 
-    // Upload das imagens extras (não compacta aqui, mas pode fazer igual se quiser)
+    // Upload das imagens extras
     const urlsExtras = [];
     for (const imagem of imagensExtras) {
       const filePath = `${Date.now()}_${imagem.name}`;
@@ -160,8 +183,8 @@ const CadastroPedido = ({ onCadastrar }) => {
     const novaAtividade = {
       pedido,
       cliente,
-      imagem: urlPrincipal,      // original já compactada
-      thumb: urlThumb,           // thumbnail salva aqui
+      imagem: urlPrincipal,
+      thumb: urlThumb,
       imagensExtras: JSON.stringify(urlsExtras),
       descricao,
       setorAtual,
@@ -186,7 +209,7 @@ const CadastroPedido = ({ onCadastrar }) => {
     setQuantidade(1);
     setTipoProduto('');
   };
-
+  
   return (
     <div className="form-container">
       <h1>Cadastro de Pedido</h1>
