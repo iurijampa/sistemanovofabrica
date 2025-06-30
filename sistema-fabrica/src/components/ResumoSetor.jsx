@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabaseClient";
+import audioNotificacao from '../assets/metadiaria.mp3';
 
 // Metas por setor
 const METAS_SETOR = {
@@ -30,14 +31,13 @@ function capitalizar(str) {
   if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
-// Conta dias úteis (segunda-sábado, exclui domingo)
 function contarDiasUteis(startDate, endDate) {
   let count = 0;
   let current = new Date(startDate);
   endDate = new Date(endDate);
   while (current <= endDate) {
     const day = current.getDay();
-    if (day >= 1 && day <= 6) count++; // 1=seg, ..., 6=sab
+    if (day >= 1 && day <= 6) count++;
     current.setDate(current.getDate() + 1);
   }
   return count || 1;
@@ -62,6 +62,12 @@ function getSemanaLabels() {
   return dias;
 }
 
+// Função utilitária para chave de controle do áudio
+function getChaveMetaDiaria(setor) {
+  const hojeISO = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  return `meta_batida__${setor}__${hojeISO}`;
+}
+
 export default function ResumoSetor({ setor }) {
   const [hoje, setHoje] = useState(0);
   const [media, setMedia] = useState(0);
@@ -69,89 +75,120 @@ export default function ResumoSetor({ setor }) {
   const [barrasSemana, setBarrasSemana] = useState([]);
   const [parabens, setParabens] = useState(false);
 
-  // Seleciona meta do setor
   const metaSetor = METAS_SETOR[capitalizar(setor)] || 10;
 
-  useEffect(() => {
-    async function carregarResumo() {
-      const setorCap = capitalizar(setor);
+  const audioRef = useRef(null);
 
-      // ... mesmas queries de sempre
-      const { inicio, fim } = getIntervaloHojeBrasil();
+  async function carregarResumo() {
+    const setorCap = capitalizar(setor);
+    const { inicio, fim } = getIntervaloHojeBrasil();
 
-      const { data: concluidasTodas } = await supabase
-        .from("movimentacoes")
-        .select("*")
-        .eq("setor_origem", setorCap)
-        .eq("tipo", "concluiu")
-        .order("data", { ascending: true });
+    const { data: concluidasTodas } = await supabase
+      .from("movimentacoes")
+      .select("*")
+      .eq("setor_origem", setorCap)
+      .eq("tipo", "concluiu")
+      .order("data", { ascending: true });
 
-      const { data: entradasTodas } = await supabase
-        .from("movimentacoes")
-        .select("*")
-        .eq("setor_destino", setorCap)
-        .order("data", { ascending: true });
+    const { data: entradasTodas } = await supabase
+      .from("movimentacoes")
+      .select("*")
+      .eq("setor_destino", setorCap)
+      .order("data", { ascending: true });
 
-      // Média histórica segunda-sábado
-      if (concluidasTodas?.length > 0) {
-        const dataPrimeira = new Date(concluidasTodas[0].data);
-        const dataUltima = new Date(concluidasTodas[concluidasTodas.length - 1].data);
-        const diasUteis = contarDiasUteis(dataPrimeira, dataUltima);
-        setMedia(Math.round(concluidasTodas.length / diasUteis));
-      } else {
-        setMedia(0);
-      }
-
-      // Gráfico semanal: barras verticais, lado a lado
-      const semana = getSemanaLabels();
-      const barras = semana.map(({ ymd, label }) => {
-        const total = concluidasTodas?.filter(c => c.data.slice(0, 10) === ymd).length || 0;
-        let cor = "#ef4444"; // vermelho
-        const pct = total / metaSetor;
-        if (pct >= 1) cor = "#22c55e";
-        else if (pct >= 0.51) cor = "#eab308";
-        else if (total === 0) cor = "#e5e7eb";
-        return { data: label, total, cor, pct: Math.min(1, pct) };
-      });
-      setBarrasSemana(barras);
-
-      // Hoje
-      const hojeISO = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-      const concluidasHoje = concluidasTodas?.filter(c => c.data.slice(0, 10) === hojeISO) || [];
-      setHoje(concluidasHoje.length);
-      setParabens(concluidasHoje.length >= metaSetor);
-
-      // Tempo médio da semana (igual antes)
-      const inicioSemana = new Date(semana[0].ymd + "T00:00:00-03:00");
-      const fimSemana = new Date(semana[5].ymd + "T23:59:59-03:00");
-      const entradasSemana = entradasTodas?.filter(e => {
-        const d = new Date(e.data);
-        return d >= inicioSemana && d <= fimSemana;
-      }) || [];
-      const concluidasSemana = concluidasTodas?.filter(c => {
-        const d = new Date(c.data);
-        return d >= inicioSemana && d <= fimSemana;
-      }) || [];
-
-      function calcularTempos(pedidosConcluidos, entradasSetor) {
-        const tempos = [];
-        pedidosConcluidos.forEach((saida) => {
-          const entrada = entradasSetor
-            .filter(e => e.pedido_id === saida.pedido_id)
-            .sort((a, b) => new Date(b.data) - new Date(a.data))[0];
-          if (entrada && saida) {
-            const tempoMin = (new Date(saida.data) - new Date(entrada.data)) / (1000 * 60);
-            if (tempoMin > 0 && tempoMin < 15 * 24 * 60) tempos.push(tempoMin);
-          }
-        });
-        return tempos;
-      }
-      const temposSemana = calcularTempos(concluidasSemana, entradasSemana);
-      setTempoMedio(formatarMinutos(
-        temposSemana.length ? temposSemana.reduce((a, b) => a + b, 0) / temposSemana.length : 0
-      ));
+    if (concluidasTodas?.length > 0) {
+      const dataPrimeira = new Date(concluidasTodas[0].data);
+      const dataUltima = new Date(concluidasTodas[concluidasTodas.length - 1].data);
+      const diasUteis = contarDiasUteis(dataPrimeira, dataUltima);
+      setMedia(Math.round(concluidasTodas.length / diasUteis));
+    } else {
+      setMedia(0);
     }
+
+    const semana = getSemanaLabels();
+    const barras = semana.map(({ ymd, label }) => {
+      const total = concluidasTodas?.filter(c => c.data.slice(0, 10) === ymd).length || 0;
+      let cor = "#ef4444";
+      const pct = total / metaSetor;
+      if (pct >= 1) cor = "#22c55e";
+      else if (pct >= 0.51) cor = "#eab308";
+      else if (total === 0) cor = "#e5e7eb";
+      return { data: label, total, cor, pct: Math.min(1, pct) };
+    });
+    setBarrasSemana(barras);
+
+    const hojeISO = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+    const concluidasHoje = concluidasTodas?.filter(c => c.data.slice(0, 10) === hojeISO) || [];
+    setHoje(concluidasHoje.length);
+
+    const chaveAudio = getChaveMetaDiaria(setorCap);
+
+    if (concluidasHoje.length >= metaSetor) {
+      setParabens(true);
+      // Checa se já tocou para este setor/hoje
+      if (!localStorage.getItem(chaveAudio) && audioRef.current) {
+        audioRef.current.play();
+        localStorage.setItem(chaveAudio, "true");
+      }
+    } else {
+      setParabens(false);
+      localStorage.removeItem(chaveAudio);
+    }
+
+    const inicioSemana = new Date(semana[0].ymd + "T00:00:00-03:00");
+    const fimSemana = new Date(semana[5].ymd + "T23:59:59-03:00");
+    const entradasSemana = entradasTodas?.filter(e => {
+      const d = new Date(e.data);
+      return d >= inicioSemana && d <= fimSemana;
+    }) || [];
+    const concluidasSemana = concluidasTodas?.filter(c => {
+      const d = new Date(c.data);
+      return d >= inicioSemana && d <= fimSemana;
+    }) || [];
+
+    function calcularTempos(pedidosConcluidos, entradasSetor) {
+      const tempos = [];
+      pedidosConcluidos.forEach((saida) => {
+        const entrada = entradasSetor
+          .filter(e => e.pedido_id === saida.pedido_id)
+          .sort((a, b) => new Date(b.data) - new Date(a.data))[0];
+        if (entrada && saida) {
+          const tempoMin = (new Date(saida.data) - new Date(entrada.data)) / (1000 * 60);
+          if (tempoMin > 0 && tempoMin < 15 * 24 * 60) tempos.push(tempoMin);
+        }
+      });
+      return tempos;
+    }
+    const temposSemana = calcularTempos(concluidasSemana, entradasSemana);
+    setTempoMedio(formatarMinutos(
+      temposSemana.length ? temposSemana.reduce((a, b) => a + b, 0) / temposSemana.length : 0
+    ));
+  }
+
+  useEffect(() => {
     carregarResumo();
+    // eslint-disable-next-line
+  }, [setor]);
+
+  useEffect(() => {
+    const canal = supabase
+      .channel('movimentacoes_realtime')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'movimentacoes',
+        filter: `setor_origem=eq.${capitalizar(setor)}`
+      }, (payload) => {
+        if (payload.new.tipo === "concluiu") {
+          carregarResumo();
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canal);
+    };
+    // eslint-disable-next-line
   }, [setor]);
 
   // Visual
@@ -171,8 +208,6 @@ export default function ResumoSetor({ setor }) {
     color: "#333"
   };
   const labelStyle = { fontSize: 14, fontWeight: 400, color: "#666", marginBottom: 3 };
-
-  // Barras verticais (moderno, compacto)
   const barContainer = {
     display: "flex",
     gap: 13,
@@ -185,6 +220,8 @@ export default function ResumoSetor({ setor }) {
 
   return (
     <div>
+      {/* AUDIO (caminho pronto) */}
+      <audio ref={audioRef} src={audioNotificacao} preload="auto" />
       <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
         {/* HOJE */}
         <div style={cardStyle}>
@@ -211,7 +248,6 @@ export default function ResumoSetor({ setor }) {
           <div style={{ ...labelStyle, marginBottom: 2, textAlign: "center" }}>Resumo semanal</div>
           <div style={barContainer}>
             {barrasSemana.map((d, idx) => {
-              // Barra cheia preenchida em porcentagem
               const alturaMax = 45;
               return (
                 <div key={idx} style={{
@@ -222,7 +258,6 @@ export default function ResumoSetor({ setor }) {
                   height: "100%",
                   minWidth: 18
                 }}>
-                  {/* Sombra da barra (base cinza claro) */}
                   <div style={{
                     width: 14,
                     height: alturaMax,
@@ -234,7 +269,6 @@ export default function ResumoSetor({ setor }) {
                     display: "flex",
                     alignItems: "flex-end"
                   }}>
-                    {/* Barra preenchida conforme a porcentagem */}
                     <div style={{
                       width: "100%",
                       height: `${d.pct * 100}%`,
@@ -246,7 +280,6 @@ export default function ResumoSetor({ setor }) {
                       transition: "height .2s"
                     }} />
                   </div>
-                  {/* Número */}
                   <div style={{
                     fontSize: 13,
                     fontWeight: 700,
@@ -254,7 +287,6 @@ export default function ResumoSetor({ setor }) {
                     marginTop: 2,
                     minHeight: 15
                   }}>{d.total > 0 ? d.total : ''}</div>
-                  {/* Nome do dia */}
                   <div style={{
                     fontSize: 12,
                     color: "#888",
