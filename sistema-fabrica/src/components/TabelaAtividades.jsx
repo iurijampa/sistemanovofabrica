@@ -51,6 +51,7 @@ const TabelaAtividades = ({
   corMoldura
 }) => {
   const isImpressao = usuarioAtual === 'impressao';
+  const isCostura = usuarioAtual === 'costura';
 
   const TableContent = (
     <div style={{ width: '100%', overflowX: 'auto' }}>
@@ -66,6 +67,7 @@ const TabelaAtividades = ({
             ) : (
               <>
                 <th>Setor</th>
+                {(isAdmin || isCostura) && <th>Costureira</th>}
                 <th>Enviado Por</th>
                 <th>Observação</th>
               </>
@@ -95,7 +97,6 @@ const TabelaAtividades = ({
                 }}
               >
                 <td>
-                  {/* SÓ MOSTRA A IMAGEM SE NÃO ESTIVER FINALIZADO */}
                   {a.setorAtual !== "Finalizado" ? (
                     a.thumb ? (
                       <img
@@ -140,7 +141,6 @@ const TabelaAtividades = ({
                   ) : (
                     <span style={{ color: '#999' }}>-</span>
                   )}
-                  {/* Imagens extras continuam aparecendo normalmente, pode ocultar também se quiser */}
                 </td>
                 <td>
                   {a.pedido}
@@ -219,6 +219,11 @@ const TabelaAtividades = ({
                         {a.setorAtual}
                       </span>
                     </td>
+
+                    {(isAdmin || isCostura) && (
+                      <td>{a.costureira || '-'}</td>
+                    )}
+
                     <td>
                       {a.funcionarioEnvio || '-'}
                       {a.dataEnvio && (
@@ -231,7 +236,6 @@ const TabelaAtividades = ({
                   </>
                 )}
                 <td>
-                  {/* Botões grid admin / coluna funcionário */}
                   <div
                     style={{
                       display: 'grid',

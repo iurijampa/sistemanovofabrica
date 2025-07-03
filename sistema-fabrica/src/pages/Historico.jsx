@@ -145,11 +145,16 @@ const Historico = ({ setorUsuario }) => {
               }}
             >
               <strong>
-                {mov.funcionarioEnvio && mov.funcionarioEnvio.trim() !== ''
-                  ? mov.funcionarioEnvio
-                  : '—'}
-              </strong>{" "}
-              {mov.tipo}
+  {mov.funcionarioEnvio && mov.funcionarioEnvio.trim() !== ''
+    ? mov.funcionarioEnvio
+    : '—'}
+</strong>{" "}
+{mov.tipo}
+{mov.setor_origem?.toLowerCase() === 'batida' && mov.costureira ? (
+  <> para a costureira <strong>{mov.costureira}</strong></>
+) : null}
+
+
               {/* Nome do pedido + botão PDF */}
               {mov.atividade?.pedido ? (
                 <>

@@ -201,7 +201,8 @@ function App() {
     }
   };
 
-  const concluirAtividade = async (pedidoId, nomeFuncionario, observacao) => {
+  const concluirAtividade = async (pedidoId, nomeFuncionario, observacao, costureira = null) => {
+
   const { data: atividadeAtual, error: fetchError } = await supabase
     .from('atividades')
     .select('*')
@@ -216,17 +217,19 @@ function App() {
   const setorAnteriorVal = atividadeAtual.setorAtual;
   const novoSetor = proximoSetor(setorAnteriorVal);
 
-  const { error } = await supabase
+    const { error } = await supabase
     .from('atividades')
     .update({
       status: novoSetor === 'Finalizado' ? 'concluido' : 'pendente',
       setorAtual: novoSetor,
       funcionarioEnvio: nomeFuncionario,
       observacaoEnvio: observacao,
+      costureira: costureira, // <-- novo campo
       dataEnvio: new Date().toISOString(),
-      statusRetorno: false, // <-- Limpa destaque ao concluir
+      statusRetorno: false,
     })
     .eq('id', pedidoId);
+
 
   if (!error) {
     const { data: atividadeAtualizada } = await supabase
@@ -242,6 +245,7 @@ function App() {
       tipo: 'concluiu',
       funcionarioEnvio: atividadeAtualizada?.funcionarioEnvio,
       observacaoEnvio: atividadeAtualizada?.observacaoEnvio,
+      costureira: costureira // <-- novo campo
     });
 
     await carregarAtividades();
@@ -447,15 +451,16 @@ function App() {
         )}
 
         {pedidoParaConcluir && (
-          <ModalConcluirAtividade
-            atividade={pedidoParaConcluir}
-            onCancelar={fecharModalConcluirAtividade}
-            onConfirmar={(nome, observacao) => {
-              concluirAtividade(pedidoParaConcluir.id, nome, observacao);
-              fecharModalConcluirAtividade();
-            }}
-          />
-        )}
+  <ModalConcluirAtividade
+    atividade={pedidoParaConcluir}
+    onCancelar={fecharModalConcluirAtividade}
+    onConfirmar={(nome, observacao, costureira) => {
+      concluirAtividade(pedidoParaConcluir.id, nome, observacao, costureira);
+      fecharModalConcluirAtividade();
+    }}
+  />
+)}
+
 
         {pedidoParaRetornar && (
           <ModalRetornarAtividade

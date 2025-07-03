@@ -120,10 +120,17 @@ function LinhaTempoHistorico({ movimentacoes, usuarioAtual }) {
                   <strong>Por:</strong> {m.funcionarioEnvio || '-'}
                 </div>
                 {m.observacaoEnvio && (
-                  <div style={{ fontSize: 15, marginBottom: 2 }}>
-                    <strong>Obs:</strong> {m.observacaoEnvio}
-                  </div>
-                )}
+  <div style={{ fontSize: 15, marginBottom: 2 }}>
+    <strong>Obs:</strong> {m.observacaoEnvio}
+  </div>
+)}
+
+{m.setor_origem?.toLowerCase() === 'batida' && m.costureira && (
+  <div style={{ fontSize: 15, marginBottom: 2 }}>
+    <strong>Costureira:</strong> {m.costureira}
+  </div>
+)}
+
                 <div style={{ fontSize: 14, color: '#888' }}>
                   <strong>Data/hora:</strong> {dataLocal}
                 </div>
