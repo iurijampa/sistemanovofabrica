@@ -251,6 +251,43 @@ const TabelaAtividades = ({
                       👁️
                     </button>
                     {isAdmin && (
+  <button
+  title="Copiar link de rastreio"
+  onClick={() => {
+    const link = `https://stampblue.netlify.app/?id=${a.id}`;
+
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(link)
+        .then(() => {
+          alert('🔗 Link de rastreamento copiado!');
+        })
+        .catch(err => {
+          alert('Erro ao copiar o link: ' + err);
+        });
+    } else {
+      // Fallback para navegadores sem suporte
+      const textarea = document.createElement("textarea");
+      textarea.value = link;
+      textarea.style.position = "fixed"; // evita scroll ao focar
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        alert('🔗 Link de rastreamento copiado!');
+      } catch (err) {
+        alert('Erro ao copiar o link');
+      }
+      document.body.removeChild(textarea);
+    }
+  }}
+>
+  🔗
+</button>
+
+)}
+
+                    {isAdmin && (
                       <>
                         <button title="Editar" onClick={() => onAbrirEdicao(a)}>
                           ✏️
