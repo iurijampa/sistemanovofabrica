@@ -336,7 +336,28 @@ const ModalVisualizar = ({ pedido, onClose, usuarioAtual }) => {
       let currentY = drawHeader(pageIndex);
       const { endY: afterMain } = await insertMainImageAndDescricao(currentY);
       await insertExtraImages(afterMain);
-      doc.save(`pedido_${pedido.pedido}.pdf`);
+      const nomeArquivo = `pedido_${pedido.pedido}.pdf`;
+doc.save(nomeArquivo);
+
+// Se estiver rodando dentro do Electron, abrir nova janela
+if (window?.require) {
+  try {
+    const { ipcRenderer } = window.require('electron');
+    const path = window.require('path');
+    const os = window.require('os');
+    const fs = window.require('fs');
+
+    const pastaTemp = os.tmpdir();
+    const caminhoPDF = path.join(pastaTemp, nomeArquivo);
+    const pdfBytes = doc.output('arraybuffer');
+
+    fs.writeFileSync(caminhoPDF, Buffer.from(pdfBytes));
+    ipcRenderer.send('abrir-pdf', caminhoPDF);
+  } catch (e) {
+    console.error('Erro ao tentar abrir PDF no Electron:', e);
+  }
+}
+
     } catch (error) {
       alert('Erro ao gerar PDF: ' + error.message);
     }
