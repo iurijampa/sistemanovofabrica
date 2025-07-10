@@ -10,6 +10,7 @@ import ModalRetornarAtividade from './components/ModalRetornarAtividade'; // <--
 import LoginEmailSenha from './components/LoginEmailSenha';
 import useRealtimeAtividades from './hooks/useRealtimeAtividades';
 import somNotificacao from './assets/notificacao.mp3';
+import somRetorno from './assets/retorno.mp3'; 
 import { supabase } from './supabaseClient';
 import Historico from './pages/Historico';
 import { registrarMovimentacao } from './utils/registrarMovimentacao';
@@ -65,6 +66,7 @@ function App() {
 
   const navigate = useNavigate();
   const audio = useRef(new Audio(somNotificacao));
+  const audioRetorno = useRef(new Audio(somRetorno));
 
   const carregarAtividades = async () => {
     const { data, error } = await supabase
@@ -290,7 +292,7 @@ function App() {
       funcionarioEnvio: nomeFuncionario,
       observacaoEnvio: observacao,
       dataEnvio: new Date().toISOString(),
-      statusRetorno: true, // <-- Aqui o destaque!
+      statusRetorno: true,
     })
     .eq('id', pedidoId);
 
@@ -311,8 +313,10 @@ function App() {
     });
 
     await carregarAtividades();
+
   }
 };
+
 
 
   const abrirVisualizacao = (pedido) => setPedidoVisualizado(pedido);
@@ -346,19 +350,20 @@ function App() {
           }
         });
 
-        // 🔔 Toca som também se for retorno!
-        const deveTocarSom =
-          normalize(setorLogado) !== 'admin' &&
-          setorAtividade === normalize(setorLogado) &&
-          (
-            !novaAtividade.statusRetorno ||  // padrão
-            novaAtividade.statusRetorno === true // retornado
-          );
+        // 🔊 Lógica para som
+        const isAdmin = normalize(setorLogado) === 'admin';
+        const isSetorCorreto = setorAtividade === normalize(setorLogado);
+        const isRetorno = novaAtividade.statusRetorno === true;
 
-        if (deveTocarSom) {
+        if (!isAdmin && isSetorCorreto) {
           try {
-            audio.current.currentTime = 0;
-            audio.current.play().catch(() => {});
+            if (isRetorno) {
+              audioRetorno.current.currentTime = 0;
+              audioRetorno.current.play().catch(() => {});
+            } else {
+              audio.current.currentTime = 0;
+              audio.current.play().catch(() => {});
+            }
           } catch (err) {
             console.warn('Erro ao tocar som:', err);
           }
@@ -366,6 +371,7 @@ function App() {
       }
     }
   : noop;
+
 
 
   const handleRemoverAtividade = (idRemovido) => {
