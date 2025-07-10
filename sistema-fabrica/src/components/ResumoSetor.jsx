@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import audioNotificacao from '../assets/metadiaria.mp3';
 
-// Metas por setor
 const METAS_SETOR = {
   Gabarito: 10,
   Impressao: 12,
@@ -61,23 +60,19 @@ function getSemanaLabels() {
   }
   return dias;
 }
-
-// Função utilitária para chave de controle do áudio
 function getChaveMetaDiaria(setor) {
   const hojeISO = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   return `meta_batida__${setor}__${hojeISO}`;
 }
-
 export default function ResumoSetor({ setor }) {
   const [hoje, setHoje] = useState(0);
   const [media, setMedia] = useState(0);
   const [tempoMedio, setTempoMedio] = useState("-");
   const [barrasSemana, setBarrasSemana] = useState([]);
   const [parabens, setParabens] = useState(false);
+  const audioRef = useRef(null);
 
   const metaSetor = METAS_SETOR[capitalizar(setor)] || 10;
-
-  const audioRef = useRef(null);
 
   async function carregarResumo() {
     const setorCap = capitalizar(setor);
@@ -96,18 +91,32 @@ export default function ResumoSetor({ setor }) {
       .eq("setor_destino", setorCap)
       .order("data", { ascending: true });
 
-    if (concluidasTodas?.length > 0) {
-      const dataPrimeira = new Date(concluidasTodas[0].data);
-      const dataUltima = new Date(concluidasTodas[concluidasTodas.length - 1].data);
+    // FILTRAR UMA CONCLUSÃO POR PEDIDO POR DIA
+    const concluidasFiltradas = [];
+    const setChave = new Set();
+
+    concluidasTodas?.forEach((mov) => {
+      const chave = `${mov.data.slice(0, 10)}-${mov.pedido_id}`;
+      if (!setChave.has(chave)) {
+        setChave.add(chave);
+        concluidasFiltradas.push(mov);
+      }
+    });
+
+    // Média
+    if (concluidasFiltradas.length > 0) {
+      const dataPrimeira = new Date(concluidasFiltradas[0].data);
+      const dataUltima = new Date(concluidasFiltradas[concluidasFiltradas.length - 1].data);
       const diasUteis = contarDiasUteis(dataPrimeira, dataUltima);
-      setMedia(Math.round(concluidasTodas.length / diasUteis));
+      setMedia(Math.round(concluidasFiltradas.length / diasUteis));
     } else {
       setMedia(0);
     }
 
+    // Gráfico semanal
     const semana = getSemanaLabels();
     const barras = semana.map(({ ymd, label }) => {
-      const total = concluidasTodas?.filter(c => c.data.slice(0, 10) === ymd).length || 0;
+      const total = concluidasFiltradas.filter(c => c.data.slice(0, 10) === ymd).length;
       let cor = "#ef4444";
       const pct = total / metaSetor;
       if (pct >= 1) cor = "#22c55e";
@@ -117,15 +126,20 @@ export default function ResumoSetor({ setor }) {
     });
     setBarrasSemana(barras);
 
+    // Contagem de hoje
     const hojeISO = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-    const concluidasHoje = concluidasTodas?.filter(c => c.data.slice(0, 10) === hojeISO) || [];
-    setHoje(concluidasHoje.length);
+    const pedidosHoje = new Set();
+    concluidasFiltradas.forEach(mov => {
+      if (mov.data.slice(0, 10) === hojeISO) {
+        pedidosHoje.add(mov.pedido_id);
+      }
+    });
+    setHoje(pedidosHoje.size);
 
+    // Parabéns
     const chaveAudio = getChaveMetaDiaria(setorCap);
-
-    if (concluidasHoje.length >= metaSetor) {
+    if (pedidosHoje.size >= metaSetor) {
       setParabens(true);
-      // Checa se já tocou para este setor/hoje
       if (!localStorage.getItem(chaveAudio) && audioRef.current) {
         audioRef.current.play();
         localStorage.setItem(chaveAudio, "true");
@@ -135,40 +149,35 @@ export default function ResumoSetor({ setor }) {
       localStorage.removeItem(chaveAudio);
     }
 
+    // Tempo médio da semana
     const inicioSemana = new Date(semana[0].ymd + "T00:00:00-03:00");
     const fimSemana = new Date(semana[5].ymd + "T23:59:59-03:00");
     const entradasSemana = entradasTodas?.filter(e => {
       const d = new Date(e.data);
       return d >= inicioSemana && d <= fimSemana;
     }) || [];
-    const concluidasSemana = concluidasTodas?.filter(c => {
+    const concluidasSemana = concluidasFiltradas.filter(c => {
       const d = new Date(c.data);
       return d >= inicioSemana && d <= fimSemana;
-    }) || [];
+    });
 
-    function calcularTempos(pedidosConcluidos, entradasSetor) {
-      const tempos = [];
-      pedidosConcluidos.forEach((saida) => {
-        const entrada = entradasSetor
-          .filter(e => e.pedido_id === saida.pedido_id)
-          .sort((a, b) => new Date(b.data) - new Date(a.data))[0];
-        if (entrada && saida) {
-          const tempoMin = (new Date(saida.data) - new Date(entrada.data)) / (1000 * 60);
-          if (tempoMin > 0 && tempoMin < 15 * 24 * 60) tempos.push(tempoMin);
-        }
-      });
-      return tempos;
-    }
-    const temposSemana = calcularTempos(concluidasSemana, entradasSemana);
+    const tempos = [];
+    concluidasSemana.forEach((saida) => {
+      const entrada = entradasSemana
+  .filter(e => e.pedido_id === saida.pedido_id)
+        .sort((a, b) => new Date(b.data) - new Date(a.data))[0];
+      if (entrada) {
+        const tempoMin = (new Date(saida.data) - new Date(entrada.data)) / 60000;
+        if (tempoMin > 0 && tempoMin < 15 * 24 * 60) tempos.push(tempoMin);
+      }
+    });
+
     setTempoMedio(formatarMinutos(
-      temposSemana.length ? temposSemana.reduce((a, b) => a + b, 0) / temposSemana.length : 0
+      tempos.length ? tempos.reduce((a, b) => a + b, 0) / tempos.length : 0
     ));
   }
 
-  useEffect(() => {
-    carregarResumo();
-    // eslint-disable-next-line
-  }, [setor]);
+  useEffect(() => { carregarResumo(); }, [setor]);
 
   useEffect(() => {
     const canal = supabase
@@ -185,13 +194,8 @@ export default function ResumoSetor({ setor }) {
       })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(canal);
-    };
-    // eslint-disable-next-line
+    return () => { supabase.removeChannel(canal); };
   }, [setor]);
-
-  // Visual
   const cardStyle = {
     minWidth: 110,
     minHeight: 70,
@@ -220,30 +224,23 @@ export default function ResumoSetor({ setor }) {
 
   return (
     <div>
-      {/* AUDIO (caminho pronto) */}
       <audio ref={audioRef} src={audioNotificacao} preload="auto" />
       <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
-        {/* HOJE */}
         <div style={cardStyle}>
           <div style={labelStyle}>Hoje</div>
           <div>
             {hoje}
-            {parabens && (
-              <span style={{ fontSize: 28, marginLeft: 7 }} title="Meta batida!">🎉</span>
-            )}
+            {parabens && <span style={{ fontSize: 28, marginLeft: 7 }}>🎉</span>}
           </div>
         </div>
-        {/* MÉDIA */}
         <div style={cardStyle}>
           <div style={labelStyle}>Média</div>
           <div>{media}</div>
         </div>
-        {/* TEMPO MÉDIO */}
         <div style={cardStyle}>
           <div style={labelStyle}>Tempo médio</div>
           <div>{tempoMedio}</div>
         </div>
-        {/* GRÁFICO SEMANAL */}
         <div style={{ ...cardStyle, minWidth: 175, padding: 8, alignItems: "stretch", position: "relative" }}>
           <div style={{ ...labelStyle, marginBottom: 2, textAlign: "center" }}>Resumo semanal</div>
           <div style={barContainer}>
