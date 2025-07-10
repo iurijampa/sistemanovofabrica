@@ -152,25 +152,21 @@ const CadastroPedido = ({ onCadastrar }) => {
       .getPublicUrl(filePathPrincipal);
     const urlPrincipal = dataPrincipal.publicUrl;
 
-    // Gerar e upload da thumbnail da imagem principal
-    const thumbBlob = await gerarThumbImagem(imagemPrincipal, 80);
-    const thumbPath = `thumbs/${Date.now()}_${imagemPrincipal.name}`;
-    const { error: erroThumb } = await supabase
+// Gera e envia thumb real
+const thumbBlob = await gerarThumbImagem(imagemPrincipal, 80);
+const thumbPath = `thumbs/${Date.now()}_${imagemPrincipal.name}`;
+const { error: erroThumb } = await supabase
   .storage.from('imagens')
-  .upload(thumbPath, thumbBlob, {
-    upsert: true,
-    cacheControl: 'public, max-age=86400',
-    contentType: 'image/jpeg'
-  });
+  .upload(thumbPath, thumbBlob);
 
+if (erroThumb) {
+  alert('Erro ao enviar thumbnail');
+  return;
+}
 
-    let urlThumb = '';
-    if (!erroThumb) {
-      const { data: dataThumb } = supabase.storage
-        .from('imagens')
-        .getPublicUrl(thumbPath);
-      urlThumb = dataThumb.publicUrl;
-    }
+const { data: dataThumb } = supabase.storage.from('imagens').getPublicUrl(thumbPath);
+const urlThumb = dataThumb?.publicUrl;
+
 
     // Upload das imagens extras
     const urlsExtras = [];
