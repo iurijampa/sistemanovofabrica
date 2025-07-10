@@ -4,7 +4,10 @@ import './ModalConcluirAtividade.css';
 const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar }) => {
   const [nomeFuncionario, setNomeFuncionario] = useState('');
   const [observacao, setObservacao] = useState('');
-  const [costureira, setCostureira] = useState(''); // Novo estado
+  const [costureira, setCostureira] = useState('');
+  const [destinoImpressaoAlgodao, setDestinoImpressaoAlgodao] = useState('');
+
+  const tipoProduto = (atividade.tipo_produto || '').toLowerCase();
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -14,19 +17,23 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar }) => {
       return;
     }
 
-    // Se for setor Batida, a costureira deve ser selecionada
     if (atividade.setorAtual === 'Batida' && !costureira.trim()) {
       alert('Por favor, selecione a costureira.');
       return;
     }
 
-    console.log('[MODAL] Vai confirmar:', nomeFuncionario, observacao, costureira);
+    if (atividade.setorAtual === 'Impressao' && tipoProduto === 'algodao' && !destinoImpressaoAlgodao.trim()) {
+      alert('Por favor, selecione o setor de destino.');
+      return;
+    }
 
-    // Enviar costureira somente se for Batida
+    console.log('[MODAL] Vai confirmar:', nomeFuncionario, observacao, costureira, destinoImpressaoAlgodao);
+
     onConfirmar(
       nomeFuncionario.trim(),
       observacao.trim(),
-      atividade.setorAtual === 'Batida' ? costureira.trim() : null
+      atividade.setorAtual === 'Batida' ? costureira.trim() : null,
+      atividade.setorAtual === 'Impressao' && tipoProduto === 'algodao' ? destinoImpressaoAlgodao.trim() : null
     );
   };
 
@@ -47,7 +54,6 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar }) => {
           </label>
           <br />
 
-          {/* Campo visível somente para setor Batida */}
           {atividade.setorAtual === 'Batida' && (
             <>
               <label>
@@ -65,7 +71,24 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar }) => {
                   <option value="Nilda">Nilda</option>
                   <option value="Jordania">Jordania</option>
                   <option value="Zal">Zal</option>
-                  {/* Adicione outras conforme necessário */}
+                </select>
+              </label>
+              <br />
+            </>
+          )}
+
+          {atividade.setorAtual === 'Impressao' && tipoProduto === 'algodao' && (
+            <>
+              <label>
+                Para qual setor vai:
+                <select
+                  value={destinoImpressaoAlgodao}
+                  onChange={(e) => setDestinoImpressaoAlgodao(e.target.value)}
+                  required
+                >
+                  <option value="">Selecione</option>
+                  <option value="Batida">Batida</option>
+                  <option value="Costura">Costura</option>
                 </select>
               </label>
               <br />

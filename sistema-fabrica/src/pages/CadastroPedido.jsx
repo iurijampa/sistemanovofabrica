@@ -185,18 +185,25 @@ const CadastroPedido = ({ onCadastrar }) => {
       }
     }
 
+const dataEntregaReal = new Date(dataEntrega); // Data que o cliente vê
+const dataParaProducao = new Date(dataEntregaReal); // Data para produção
+dataParaProducao.setDate(dataParaProducao.getDate() - 5); // Subtrai 5 dias
+
+
     const novaAtividade = {
-      pedido,
-      cliente,
-      imagem: urlPrincipal,
-      thumb: urlThumb,
-      imagensExtras: JSON.stringify(urlsExtras),
-      descricao,
-      setorAtual,
-      dataEntrega: new Date(dataEntrega).toISOString(),
-      urgente,
-      tipo_produto: tipoProduto
-    };
+  pedido,
+  cliente,
+  imagem: urlPrincipal,
+  thumb: urlThumb,
+  imagensExtras: JSON.stringify(urlsExtras),
+  descricao,
+  setorAtual,
+  dataEntrega: dataParaProducao.toISOString(), // Para produção
+  dataEntregaCliente: dataEntregaReal.toISOString(), // Para cliente
+  urgente,
+  tipo_produto: tipoProduto
+};
+
 
     await onCadastrar(novaAtividade);
     alert('Pedido cadastrado com sucesso!');

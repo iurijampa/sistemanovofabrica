@@ -201,8 +201,13 @@ function App() {
     }
   };
 
-  const concluirAtividade = async (pedidoId, nomeFuncionario, observacao, costureira = null) => {
-
+  const concluirAtividade = async (
+  pedidoId,
+  nomeFuncionario,
+  observacao,
+  costureira = null,
+  destinoPersonalizado = null
+) => {
   const { data: atividadeAtual, error: fetchError } = await supabase
     .from('atividades')
     .select('*')
@@ -215,21 +220,20 @@ function App() {
   }
 
   const setorAnteriorVal = atividadeAtual.setorAtual;
-  const novoSetor = proximoSetor(setorAnteriorVal);
+  const novoSetor = destinoPersonalizado || proximoSetor(setorAnteriorVal);
 
-    const { error } = await supabase
+  const { error } = await supabase
     .from('atividades')
     .update({
       status: novoSetor === 'Finalizado' ? 'concluido' : 'pendente',
       setorAtual: novoSetor,
       funcionarioEnvio: nomeFuncionario,
       observacaoEnvio: observacao,
-      costureira: costureira, // <-- novo campo
+      costureira: costureira,
       dataEnvio: new Date().toISOString(),
       statusRetorno: false,
     })
     .eq('id', pedidoId);
-
 
   if (!error) {
     const { data: atividadeAtualizada } = await supabase
@@ -245,12 +249,13 @@ function App() {
       tipo: 'concluiu',
       funcionarioEnvio: atividadeAtualizada?.funcionarioEnvio,
       observacaoEnvio: atividadeAtualizada?.observacaoEnvio,
-      costureira: costureira // <-- novo campo
+      costureira: costureira,
     });
 
     await carregarAtividades();
   }
 };
+
 
 
   // NOVO: Handler do botão retornar (abre modal)
@@ -323,32 +328,45 @@ function App() {
   const setorLogado = usuario?.setor || 'admin';
 
   const handleNovaAtividade = usuario
-    ? (novaAtividade) => {
-        const setorAtividade = normalize(novaAtividade.setorAtual);
+  ? (novaAtividade) => {
+      const setorAtividade = normalize(novaAtividade.setorAtual);
 
-        if (normalize(setorLogado) === 'admin' || setorAtividade === normalize(setorLogado)) {
-          setAtividades((prev) => {
-            const jaExiste = prev.some((a) => a.id === novaAtividade.id);
-            if (jaExiste) {
-              return prev.map((a) =>
-                a.id === novaAtividade.id ? novaAtividade : a
-              );
-            } else {
-              return [...prev, novaAtividade];
-            }
-          });
+      if (
+        normalize(setorLogado) === 'admin' ||
+        setorAtividade === normalize(setorLogado)
+      ) {
+        setAtividades((prev) => {
+          const jaExiste = prev.some((a) => a.id === novaAtividade.id);
+          if (jaExiste) {
+            return prev.map((a) =>
+              a.id === novaAtividade.id ? novaAtividade : a
+            );
+          } else {
+            return [...prev, novaAtividade];
+          }
+        });
 
-          if (normalize(setorLogado) !== 'admin' && setorAtividade === normalize(setorLogado)) {
-            try {
-              audio.current.currentTime = 0;
-              audio.current.play().catch(() => {});
-            } catch (err) {
-              console.warn('Erro ao tocar som:', err);
-            }
+        // 🔔 Toca som também se for retorno!
+        const deveTocarSom =
+          normalize(setorLogado) !== 'admin' &&
+          setorAtividade === normalize(setorLogado) &&
+          (
+            !novaAtividade.statusRetorno ||  // padrão
+            novaAtividade.statusRetorno === true // retornado
+          );
+
+        if (deveTocarSom) {
+          try {
+            audio.current.currentTime = 0;
+            audio.current.play().catch(() => {});
+          } catch (err) {
+            console.warn('Erro ao tocar som:', err);
           }
         }
       }
-    : noop;
+    }
+  : noop;
+
 
   const handleRemoverAtividade = (idRemovido) => {
     setAtividades((prev) => prev.filter((a) => a.id !== idRemovido));
@@ -454,12 +472,19 @@ function App() {
   <ModalConcluirAtividade
     atividade={pedidoParaConcluir}
     onCancelar={fecharModalConcluirAtividade}
-    onConfirmar={(nome, observacao, costureira) => {
-      concluirAtividade(pedidoParaConcluir.id, nome, observacao, costureira);
+    onConfirmar={(nome, observacao, costureira, destinoPersonalizado) => {
+      concluirAtividade(
+        pedidoParaConcluir.id,
+        nome,
+        observacao,
+        costureira,
+        destinoPersonalizado
+      );
       fecharModalConcluirAtividade();
     }}
   />
 )}
+
 
 
         {pedidoParaRetornar && (

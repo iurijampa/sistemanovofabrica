@@ -28,13 +28,22 @@ const useRealtimeAtividades = (onNovaAtividade, onAtividadeRemovida, setorFiltro
           }
 
           if (eventType === 'UPDATE') {
-            const setorAntes = atividadeAntiga?.setorAtual;
-            const setorDepois = novaAtividade?.setorAtual;
-            // Só notifica se o setorAtual mudou
-            if (setorAntes !== setorDepois) {
-              onNovaAtividade(novaAtividade);
-            }
-          }
+  const setorAntes = atividadeAntiga?.setorAtual;
+  const setorDepois = novaAtividade?.setorAtual;
+  const retornoAntes = atividadeAntiga?.statusRetorno;
+  const retornoDepois = novaAtividade?.statusRetorno;
+
+  // Dispara notificação se:
+  // - mudou de setor OU
+  // - retornou para o mesmo setor, mas foi marcado como retorno
+  if (
+    setorAntes !== setorDepois ||
+    (setorAntes === setorDepois && retornoAntes !== true && retornoDepois === true)
+  ) {
+    onNovaAtividade(novaAtividade);
+  }
+}
+
 
           if (eventType === 'DELETE') {
             if (onAtividadeRemovida) {
