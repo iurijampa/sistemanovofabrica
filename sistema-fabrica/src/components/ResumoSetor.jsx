@@ -5,7 +5,7 @@ import audioNotificacao from '../assets/metadiaria.mp3';
 const METAS_SETOR = {
   Gabarito: 10,
   Impressao: 12,
-  Batida: 10,
+  Batida: 250,
   Costura: 8,
   Embalagem: 8
 };
@@ -91,17 +91,77 @@ export default function ResumoSetor({ setor }) {
       .eq("setor_destino", setorCap)
       .order("data", { ascending: true });
 
-    // FILTRAR UMA CONCLUSÃO POR PEDIDO POR DIA
-    const concluidasFiltradas = [];
-    const setChave = new Set();
+// FILTRAR UMA CONCLUSÃO POR PEDIDO POR DIA
+const concluidasFiltradas = [];
+const setChave = new Set();
 
-    concluidasTodas?.forEach((mov) => {
-      const chave = `${mov.data.slice(0, 10)}-${mov.pedido_id}`;
-      if (!setChave.has(chave)) {
-        setChave.add(chave);
-        concluidasFiltradas.push(mov);
-      }
-    });
+concluidasTodas?.forEach((mov) => {
+  const chave = `${mov.data.slice(0, 10)}-${mov.pedido_id}`;
+  if (!setChave.has(chave)) {
+    setChave.add(chave);
+    concluidasFiltradas.push(mov);
+  }
+});
+
+if (setorCap === "Batida") {
+  // Buscar atividades com ID dos pedidos concluídos
+  const idsPedidos = concluidasFiltradas.map(m => m.pedido_id);
+  const { data: atividadesRelacionadas } = await supabase
+    .from('atividades')
+    .select('id, quantidade_pecas')
+    .in('id', idsPedidos);
+
+  // Mapeando ID → quantidade_pecas
+  const mapaQuantidade = {};
+  atividadesRelacionadas?.forEach(a => {
+    mapaQuantidade[a.id] = Number(a.quantidade_pecas || 1);
+  });
+
+  // Contar peças por dia (agrupando por data)
+  const contagemPorDia = {};
+  concluidasFiltradas.forEach(mov => {
+    const data = mov.data.slice(0, 10); // YYYY-MM-DD
+    const qtd = mapaQuantidade[mov.pedido_id] || 1;
+    contagemPorDia[data] = (contagemPorDia[data] || 0) + qtd;
+  });
+
+  // Hoje
+  const hojeISO = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  setHoje(contagemPorDia[hojeISO] || 0);
+
+  // Semana
+  const semana = getSemanaLabels();
+  let totalSemana = 0;
+  const barras = semana.map(({ ymd, label }) => {
+    const total = contagemPorDia[ymd] || 0;
+    totalSemana += total;
+    let cor = "#ef4444";
+    const pct = total / metaSetor;
+    if (pct >= 1) cor = "#22c55e";
+    else if (pct >= 0.51) cor = "#eab308";
+    else if (total === 0) cor = "#e5e7eb";
+    return { data: label, total, cor, pct: Math.min(1, pct) };
+  });
+  setBarrasSemana(barras);
+  setMedia(Math.round(totalSemana / semana.length));
+
+  // Parabéns e som
+  const totalHoje = contagemPorDia[hojeISO] || 0;
+  const chaveAudio = getChaveMetaDiaria(setorCap);
+  if (totalHoje >= metaSetor) {
+    setParabens(true);
+    if (!localStorage.getItem(chaveAudio) && audioRef.current) {
+      audioRef.current.play();
+      localStorage.setItem(chaveAudio, "true");
+    }
+  } else {
+    setParabens(false);
+    localStorage.removeItem(chaveAudio);
+  }
+
+  setTempoMedio("-");
+  return; // impede execução da lógica padrão
+}
 
     // Média
     if (concluidasFiltradas.length > 0) {

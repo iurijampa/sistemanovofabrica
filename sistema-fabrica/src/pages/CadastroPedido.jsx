@@ -186,7 +186,7 @@ const dataParaProducao = new Date(dataEntregaReal); // Data para produção
 dataParaProducao.setDate(dataParaProducao.getDate() - 5); // Subtrai 5 dias
 
 
-    const novaAtividade = {
+  const novaAtividade = {
   pedido,
   cliente,
   imagem: urlPrincipal,
@@ -194,11 +194,14 @@ dataParaProducao.setDate(dataParaProducao.getDate() - 5); // Subtrai 5 dias
   imagensExtras: JSON.stringify(urlsExtras),
   descricao,
   setorAtual,
-  dataEntrega: dataParaProducao.toISOString(), // Para produção
-  dataEntregaCliente: dataEntregaReal.toISOString(), // Para cliente
+  dataEntrega: dataParaProducao.toISOString(),
+  dataEntregaCliente: dataEntregaReal.toISOString(),
   urgente,
-  tipo_produto: tipoProduto
+  tipo_produto: tipoProduto,
+  quantidade_pecas: quantidade,       // <--- ADICIONAR
+  tipo_malha: malha                   // <--- ADICIONAR
 };
+
 
 
     await onCadastrar(novaAtividade);
