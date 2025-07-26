@@ -7,9 +7,11 @@ export const registrarMovimentacao = async ({
   tipo,
   funcionarioEnvio = '',
   observacaoEnvio = '',
-  costureira = null
+  costureira = null,
+  funcionariobatida = null,
+  maquinabatida = null
 }) => {
-  console.log('[MOVIMENTACAO] Recebido:', funcionarioEnvio, observacaoEnvio, costureira);
+  console.log('[MOVIMENTACAO] Recebido:', funcionarioEnvio, observacaoEnvio, costureira, funcionariobatida, maquinabatida);
   console.log('📦 Enviando movimentação:', {
     pedido_id: pedidoId,
     setor_origem: setorOrigem,
@@ -18,6 +20,8 @@ export const registrarMovimentacao = async ({
     funcionarioEnvio,
     observacaoEnvio,
     costureira,
+    funcionariobatida,
+    maquinabatida,
   });
 
   const { error } = await supabase.from('movimentacoes').insert([
@@ -26,9 +30,11 @@ export const registrarMovimentacao = async ({
       setor_origem: setorOrigem,
       setor_destino: setorDestino,
       tipo,
-      funcionarioEnvio,    // ✔️ camelCase como está no Supabase
-      observacaoEnvio,     // ✔️ camelCase como está no Supabase
-      costureira
+      funcionarioEnvio,
+      observacaoEnvio,
+      costureira,
+      funcionariobatida,
+      maquinabatida
     }
   ]);
 
@@ -42,7 +48,9 @@ export const registrarMovimentacao = async ({
       tipo,
       funcionarioEnvio,
       observacaoEnvio,
-      costureira
+      costureira,
+      funcionariobatida,
+      maquinabatida
     });
   }
 };

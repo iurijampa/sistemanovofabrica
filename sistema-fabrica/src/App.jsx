@@ -16,6 +16,8 @@ import Historico from './pages/Historico';
 import { registrarMovimentacao } from './utils/registrarMovimentacao';
 import Estoque from './pages/Estoque';
 import ModalAlertaEstoque from './components/ModalAlertaEstoque';
+import RelatorioBatedores from './pages/RelatorioBatedores';
+
 
 const LIMITES_ALERTA = {
   'AERODRY': 100,
@@ -208,8 +210,12 @@ function App() {
   nomeFuncionario,
   observacao,
   costureira = null,
-  destinoPersonalizado = null
+  destinoPersonalizado = null,
+  funcionariosBatida = null,
+  maquinaBatida = null
 ) => {
+
+
   const { data: atividadeAtual, error: fetchError } = await supabase
     .from('atividades')
     .select('*')
@@ -245,14 +251,16 @@ function App() {
       .single();
 
     await registrarMovimentacao({
-      pedidoId,
-      setorOrigem: setorAnteriorVal,
-      setorDestino: novoSetor,
-      tipo: 'concluiu',
-      funcionarioEnvio: atividadeAtualizada?.funcionarioEnvio,
-      observacaoEnvio: atividadeAtualizada?.observacaoEnvio,
-      costureira: costureira,
-    });
+  pedidoId,
+  setorOrigem: setorAnteriorVal,
+  setorDestino: novoSetor,
+  tipo: 'concluiu',
+  funcionarioEnvio: atividadeAtualizada?.funcionarioEnvio,
+  observacaoEnvio: atividadeAtualizada?.observacaoEnvio,
+  costureira: costureira,
+  funcionariobatida: funcionariosBatida ? funcionariosBatida.join(',') : null, // nome igual ao banco!
+  maquinabatida: maquinaBatida || null, // nome igual ao banco!
+});
 
     await carregarAtividades();
   }
@@ -330,7 +338,6 @@ function App() {
     str?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
   const setorLogado = usuario?.setor || 'admin';
-
   const handleNovaAtividade = usuario
   ? (novaAtividade) => {
       const setorAtividade = normalize(novaAtividade.setorAtual);
@@ -455,6 +462,18 @@ function App() {
             }
           />
           <Route path="*" element={<Navigate to="/" />} />
+
+          <Route
+  path="/relatorio"
+  element={
+    normalize(setorLogado) === 'admin' || normalize(setorLogado) === 'batida' ? (
+      <RelatorioBatedores />
+    ) : (
+      <Navigate to="/" />
+    )
+  }
+/>
+
         </Routes>
 
         {pedidoVisualizado && (
@@ -474,17 +493,26 @@ function App() {
           />
         )}
 
-        {pedidoParaConcluir && (
+  {pedidoParaConcluir && (
   <ModalConcluirAtividade
     atividade={pedidoParaConcluir}
     onCancelar={fecharModalConcluirAtividade}
-    onConfirmar={(nome, observacao, costureira, destinoPersonalizado) => {
+    onConfirmar={(
+      nome,
+      observacao,
+      costureira,
+      destinoPersonalizado,
+      funcionariosBatida,
+      maquinaBatida
+    ) => {
       concluirAtividade(
         pedidoParaConcluir.id,
         nome,
         observacao,
         costureira,
-        destinoPersonalizado
+        destinoPersonalizado,
+        funcionariosBatida,
+        maquinaBatida
       );
       fecharModalConcluirAtividade();
     }}

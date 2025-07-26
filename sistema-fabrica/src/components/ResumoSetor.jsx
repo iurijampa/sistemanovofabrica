@@ -10,26 +10,11 @@ const METAS_SETOR = {
   Embalagem: 8
 };
 
-function getIntervaloHojeBrasil() {
-  const hoje = new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
-  const [mes, dia, ano] = hoje.split(",")[0].split("/");
-  const inicio = new Date(`${ano}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}T00:00:00-03:00`);
-  const fim = new Date(`${ano}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}T23:59:59-03:00`);
-  return {
-    inicio: inicio.toISOString().slice(0, 19),
-    fim: fim.toISOString().slice(0, 19)
-  };
-}
-function formatarMinutos(minutos) {
-  if (!minutos || isNaN(minutos) || minutos === Infinity) return "-";
-  const h = Math.floor(minutos / 60);
-  const m = Math.round(minutos % 60);
-  return `${h ? `${h}h ` : ""}${m}min`;
-}
 function capitalizar(str) {
   if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
+
 function contarDiasUteis(startDate, endDate) {
   let count = 0;
   let current = new Date(startDate);
@@ -41,6 +26,7 @@ function contarDiasUteis(startDate, endDate) {
   }
   return count || 1;
 }
+
 function getSemanaLabels() {
   const hoje = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
   const diaSemana = hoje.getDay();
@@ -60,15 +46,106 @@ function getSemanaLabels() {
   }
   return dias;
 }
+
 function getChaveMetaDiaria(setor) {
   const hojeISO = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   return `meta_batida__${setor}__${hojeISO}`;
 }
+
+function calcularCorBarra(valor, meta) {
+  const pct = valor / meta;
+  if (valor === 0) return { cor: "#e5e7eb", pct: 0 };
+  if (pct >= 1) return { cor: "#22c55e", pct: 1 };
+  if (pct >= 0.51) return { cor: "#eab308", pct };
+  return { cor: "#ef4444", pct };
+}
+
+function verificarMetaEParabenizar(valor, meta, chave, setParabens, audioRef) {
+  if (valor >= meta) {
+    setParabens(true);
+    if (!localStorage.getItem(chave) && audioRef.current) {
+      audioRef.current.play();
+      localStorage.setItem(chave, "true");
+    }
+  } else {
+    setParabens(false);
+    localStorage.removeItem(chave);
+  }
+}
+
+async function tratarResumoBatida(concluidasFiltradas, metaSetor, setHoje, setMedia, setBarrasSemana, setParabens, audioRef, setorCap, setBarrasCalandra, setBarrasPrensa) {
+  const idsPedidos = concluidasFiltradas.map(m => m.pedido_id);
+  const { data: atividadesRelacionadas } = await supabase
+    .from('atividades')
+    .select('id, quantidade_pecas')
+    .in('id', idsPedidos);
+
+  const mapaQuantidade = {};
+  atividadesRelacionadas?.forEach(a => {
+    mapaQuantidade[a.id] = Number(a.quantidade_pecas || 1);
+  });
+
+  const contagemPorDia = {};
+  concluidasFiltradas.forEach(mov => {
+    const data = mov.data.slice(0, 10);
+    const qtd = mapaQuantidade[mov.pedido_id] || 1;
+    contagemPorDia[data] = (contagemPorDia[data] || 0) + qtd;
+  });
+
+  const hojeISO = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const totalHoje = contagemPorDia[hojeISO] || 0;
+  setHoje(totalHoje);
+
+  const semana = getSemanaLabels();
+  let totalSemana = 0;
+  const barras = semana.map(({ ymd, label }) => {
+    const total = contagemPorDia[ymd] || 0;
+    totalSemana += total;
+    const { cor, pct } = calcularCorBarra(total, metaSetor);
+    return { data: label, total, cor, pct };
+  });
+  setBarrasSemana(barras);
+  setMedia(Math.round(totalSemana / semana.length));
+
+  // Calandra e Prensa
+  const contagemCalandra = {};
+  const contagemPrensa = {};
+  concluidasFiltradas.forEach(mov => {
+    const data = mov.data.slice(0, 10);
+    const qtd = mapaQuantidade[mov.pedido_id] || 1;
+    const maquina = (mov.maquinabatida || "").toLowerCase();
+    if (maquina.includes("calandra")) {
+      contagemCalandra[data] = (contagemCalandra[data] || 0) + qtd;
+    } else if (maquina.includes("prensa")) {
+      contagemPrensa[data] = (contagemPrensa[data] || 0) + qtd;
+    }
+  });
+
+  const barrasCalandraTemp = semana.map(({ ymd, label }) => {
+    const total = contagemCalandra[ymd] || 0;
+    const { cor, pct } = calcularCorBarra(total, metaSetor);
+    return { data: label, total, cor, pct };
+  });
+
+  const barrasPrensaTemp = semana.map(({ ymd, label }) => {
+    const total = contagemPrensa[ymd] || 0;
+    const { cor, pct } = calcularCorBarra(total, metaSetor);
+    return { data: label, total, cor, pct };
+  });
+
+  setBarrasCalandra(barrasCalandraTemp);
+  setBarrasPrensa(barrasPrensaTemp);
+
+  const chaveAudio = getChaveMetaDiaria(setorCap);
+  verificarMetaEParabenizar(totalHoje, metaSetor, chaveAudio, setParabens, audioRef);
+}
+
 export default function ResumoSetor({ setor }) {
   const [hoje, setHoje] = useState(0);
   const [media, setMedia] = useState(0);
-  const [tempoMedio, setTempoMedio] = useState("-");
   const [barrasSemana, setBarrasSemana] = useState([]);
+  const [barrasCalandra, setBarrasCalandra] = useState([]);
+  const [barrasPrensa, setBarrasPrensa] = useState([]);
   const [parabens, setParabens] = useState(false);
   const audioRef = useRef(null);
 
@@ -76,94 +153,38 @@ export default function ResumoSetor({ setor }) {
 
   async function carregarResumo() {
     const setorCap = capitalizar(setor);
-    const { inicio, fim } = getIntervaloHojeBrasil();
 
-    const { data: concluidasTodas } = await supabase
-      .from("movimentacoes")
-      .select("*")
-      .eq("setor_origem", setorCap)
-      .eq("tipo", "concluiu")
-      .order("data", { ascending: true });
+    const [concluidasRes, entradasRes] = await Promise.all([
+      supabase
+        .from("movimentacoes")
+        .select("*")
+        .eq("setor_origem", setorCap)
+        .eq("tipo", "concluiu")
+        .order("data", { ascending: true }),
+      supabase
+        .from("movimentacoes")
+        .select("*")
+        .eq("setor_destino", setorCap)
+        .order("data", { ascending: true })
+    ]);
 
-    const { data: entradasTodas } = await supabase
-      .from("movimentacoes")
-      .select("*")
-      .eq("setor_destino", setorCap)
-      .order("data", { ascending: true });
+    const concluidasTodas = concluidasRes.data || [];
 
-// FILTRAR UMA CONCLUSÃO POR PEDIDO POR DIA
-const concluidasFiltradas = [];
-const setChave = new Set();
+    const concluidasFiltradas = [];
+    const setChave = new Set();
+    concluidasTodas.forEach((mov) => {
+      const chave = `${mov.data.slice(0, 10)}-${mov.pedido_id}`;
+      if (!setChave.has(chave)) {
+        setChave.add(chave);
+        concluidasFiltradas.push(mov);
+      }
+    });
 
-concluidasTodas?.forEach((mov) => {
-  const chave = `${mov.data.slice(0, 10)}-${mov.pedido_id}`;
-  if (!setChave.has(chave)) {
-    setChave.add(chave);
-    concluidasFiltradas.push(mov);
-  }
-});
-
-if (setorCap === "Batida") {
-  // Buscar atividades com ID dos pedidos concluídos
-  const idsPedidos = concluidasFiltradas.map(m => m.pedido_id);
-  const { data: atividadesRelacionadas } = await supabase
-    .from('atividades')
-    .select('id, quantidade_pecas')
-    .in('id', idsPedidos);
-
-  // Mapeando ID → quantidade_pecas
-  const mapaQuantidade = {};
-  atividadesRelacionadas?.forEach(a => {
-    mapaQuantidade[a.id] = Number(a.quantidade_pecas || 1);
-  });
-
-  // Contar peças por dia (agrupando por data)
-  const contagemPorDia = {};
-  concluidasFiltradas.forEach(mov => {
-    const data = mov.data.slice(0, 10); // YYYY-MM-DD
-    const qtd = mapaQuantidade[mov.pedido_id] || 1;
-    contagemPorDia[data] = (contagemPorDia[data] || 0) + qtd;
-  });
-
-  // Hoje
-  const hojeISO = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-  setHoje(contagemPorDia[hojeISO] || 0);
-
-  // Semana
-  const semana = getSemanaLabels();
-  let totalSemana = 0;
-  const barras = semana.map(({ ymd, label }) => {
-    const total = contagemPorDia[ymd] || 0;
-    totalSemana += total;
-    let cor = "#ef4444";
-    const pct = total / metaSetor;
-    if (pct >= 1) cor = "#22c55e";
-    else if (pct >= 0.51) cor = "#eab308";
-    else if (total === 0) cor = "#e5e7eb";
-    return { data: label, total, cor, pct: Math.min(1, pct) };
-  });
-  setBarrasSemana(barras);
-  setMedia(Math.round(totalSemana / semana.length));
-
-  // Parabéns e som
-  const totalHoje = contagemPorDia[hojeISO] || 0;
-  const chaveAudio = getChaveMetaDiaria(setorCap);
-  if (totalHoje >= metaSetor) {
-    setParabens(true);
-    if (!localStorage.getItem(chaveAudio) && audioRef.current) {
-      audioRef.current.play();
-      localStorage.setItem(chaveAudio, "true");
+    if (setorCap === "Batida") {
+      await tratarResumoBatida(concluidasFiltradas, metaSetor, setHoje, setMedia, setBarrasSemana, setParabens, audioRef, setorCap, setBarrasCalandra, setBarrasPrensa);
+      return;
     }
-  } else {
-    setParabens(false);
-    localStorage.removeItem(chaveAudio);
-  }
 
-  setTempoMedio("-");
-  return; // impede execução da lógica padrão
-}
-
-    // Média
     if (concluidasFiltradas.length > 0) {
       const dataPrimeira = new Date(concluidasFiltradas[0].data);
       const dataUltima = new Date(concluidasFiltradas[concluidasFiltradas.length - 1].data);
@@ -173,68 +194,23 @@ if (setorCap === "Batida") {
       setMedia(0);
     }
 
-    // Gráfico semanal
     const semana = getSemanaLabels();
     const barras = semana.map(({ ymd, label }) => {
       const total = concluidasFiltradas.filter(c => c.data.slice(0, 10) === ymd).length;
-      let cor = "#ef4444";
-      const pct = total / metaSetor;
-      if (pct >= 1) cor = "#22c55e";
-      else if (pct >= 0.51) cor = "#eab308";
-      else if (total === 0) cor = "#e5e7eb";
-      return { data: label, total, cor, pct: Math.min(1, pct) };
+      const { cor, pct } = calcularCorBarra(total, metaSetor);
+      return { data: label, total, cor, pct };
     });
     setBarrasSemana(barras);
 
-    // Contagem de hoje
     const hojeISO = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
     const pedidosHoje = new Set();
     concluidasFiltradas.forEach(mov => {
-      if (mov.data.slice(0, 10) === hojeISO) {
-        pedidosHoje.add(mov.pedido_id);
-      }
+      if (mov.data.slice(0, 10) === hojeISO) pedidosHoje.add(mov.pedido_id);
     });
     setHoje(pedidosHoje.size);
 
-    // Parabéns
     const chaveAudio = getChaveMetaDiaria(setorCap);
-    if (pedidosHoje.size >= metaSetor) {
-      setParabens(true);
-      if (!localStorage.getItem(chaveAudio) && audioRef.current) {
-        audioRef.current.play();
-        localStorage.setItem(chaveAudio, "true");
-      }
-    } else {
-      setParabens(false);
-      localStorage.removeItem(chaveAudio);
-    }
-
-    // Tempo médio da semana
-    const inicioSemana = new Date(semana[0].ymd + "T00:00:00-03:00");
-    const fimSemana = new Date(semana[5].ymd + "T23:59:59-03:00");
-    const entradasSemana = entradasTodas?.filter(e => {
-      const d = new Date(e.data);
-      return d >= inicioSemana && d <= fimSemana;
-    }) || [];
-    const concluidasSemana = concluidasFiltradas.filter(c => {
-      const d = new Date(c.data);
-      return d >= inicioSemana && d <= fimSemana;
-    });
-
-    const tempos = [];
-    concluidasSemana.forEach((saida) => {
-      const entrada = entradasSemana
-  .filter(e => e.pedido_id === saida.pedido_id)
-        .sort((a, b) => new Date(b.data) - new Date(a.data))[0];
-      if (entrada) {
-        const tempoMin = (new Date(saida.data) - new Date(entrada.data)) / 60000;
-        if (tempoMin > 0 && tempoMin < 15 * 24 * 60) tempos.push(tempoMin);
-      }
-    });
-
-    setTempoMedio(formatarMinutos(
-      tempos.length ? tempos.reduce((a, b) => a + b, 0) / tempos.length : 0
-    ));
+    verificarMetaEParabenizar(pedidosHoje.size, metaSetor, chaveAudio, setParabens, audioRef);
   }
 
   useEffect(() => { carregarResumo(); }, [setor]);
@@ -248,14 +224,13 @@ if (setorCap === "Batida") {
         table: 'movimentacoes',
         filter: `setor_origem=eq.${capitalizar(setor)}`
       }, (payload) => {
-        if (payload.new.tipo === "concluiu") {
-          carregarResumo();
-        }
+        if (payload.new.tipo === "concluiu") carregarResumo();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(canal); };
   }, [setor]);
+
   const cardStyle = {
     minWidth: 110,
     minHeight: 70,
@@ -285,76 +260,213 @@ if (setorCap === "Batida") {
   return (
     <div>
       <audio ref={audioRef} src={audioNotificacao} preload="auto" />
-      <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+
+      <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "nowrap", overflowX: "auto", paddingBottom: 8 }}>
         <div style={cardStyle}>
           <div style={labelStyle}>Hoje</div>
-          <div>
-            {hoje}
-            {parabens && <span style={{ fontSize: 28, marginLeft: 7 }}>🎉</span>}
-          </div>
+          <div>{hoje}{parabens && <span style={{ fontSize: 28, marginLeft: 7 }}>🎉</span>}</div>
         </div>
+
         <div style={cardStyle}>
-          <div style={labelStyle}>Média</div>
+          <div style={labelStyle}>Média Diária</div>
           <div>{media}</div>
         </div>
-        <div style={cardStyle}>
-          <div style={labelStyle}>Tempo médio</div>
-          <div>{tempoMedio}</div>
-        </div>
+
         <div style={{ ...cardStyle, minWidth: 175, padding: 8, alignItems: "stretch", position: "relative" }}>
-          <div style={{ ...labelStyle, marginBottom: 2, textAlign: "center" }}>Resumo semanal</div>
+          <div style={{ ...labelStyle, marginBottom: 6, textAlign: "center", fontWeight: 700 }}>Resumo semanal</div>
           <div style={barContainer}>
-            {barrasSemana.map((d, idx) => {
-              const alturaMax = 45;
-              return (
-                <div key={idx} style={{
+            {barrasSemana.map((d, idx) => (
+              <div key={idx} style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                height: "100%",
+                minWidth: 18
+              }}>
+                <div style={{
+                  width: 14,
+                  height: 45,
+                  background: "#eee",
+                  borderRadius: 5,
+                  position: "relative",
+                  overflow: "hidden",
+                  marginBottom: 2,
                   display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "flex-end",
-                  height: "100%",
-                  minWidth: 18
+                  alignItems: "flex-end"
                 }}>
                   <div style={{
-                    width: 14,
-                    height: alturaMax,
-                    background: "#eee",
+                    width: "100%",
+                    height: `${d.pct * 100}%`,
+                    background: d.cor,
                     borderRadius: 5,
-                    position: "relative",
-                    overflow: "hidden",
-                    marginBottom: 2,
-                    display: "flex",
-                    alignItems: "flex-end"
-                  }}>
-                    <div style={{
-                      width: "100%",
-                      height: `${d.pct * 100}%`,
-                      background: d.cor,
-                      borderRadius: 5,
-                      position: "absolute",
-                      bottom: 0,
-                      left: 0,
-                      transition: "height .2s"
-                    }} />
-                  </div>
-                  <div style={{
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: d.cor,
-                    marginTop: 2,
-                    minHeight: 15
-                  }}>{d.total > 0 ? d.total : ''}</div>
-                  <div style={{
-                    fontSize: 12,
-                    color: "#888",
-                    marginTop: 1,
-                    fontWeight: 500
-                  }}>{d.data}</div>
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    transition: "height .2s"
+                  }} />
                 </div>
-              );
-            })}
+                <div style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: d.cor,
+                  marginTop: 2,
+                  minHeight: 15
+                }}>{d.total > 0 ? d.total : ''}</div>
+                <div style={{
+                  fontSize: 12,
+                  color: "#888",
+                  marginTop: 1,
+                  fontWeight: 500
+                }}>{d.data}</div>
+              </div>
+            ))}
           </div>
         </div>
+
+        {capitalizar(setor) === "Batida" && (
+          <>
+            
+
+            <div style={{ ...cardStyle, minWidth: 175, padding: 8, alignItems: "stretch" }}>
+              <div style={{ ...labelStyle, marginBottom: 6, textAlign: "center", fontWeight: 700 }}>
+                Resumo Prensa
+              </div>
+              <div style={barContainer}>
+                {barrasPrensa.map((d, idx) => (
+                  <div
+                    key={`prensa-${idx}`}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      height: "100%",
+                      minWidth: 18,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 14,
+                        height: 45,
+                        background: "#eee",
+                        borderRadius: 5,
+                        position: "relative",
+                        overflow: "hidden",
+                        marginBottom: 2,
+                        display: "flex",
+                        alignItems: "flex-end",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: "100%",
+                          height: `${d.pct * 100}%`,
+                          background: d.cor,
+                          borderRadius: 5,
+                          position: "absolute",
+                          bottom: 0,
+                          left: 0,
+                          transition: "height .2s",
+                        }}
+                      />
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: d.cor,
+                        marginTop: 2,
+                        minHeight: 15,
+                      }}
+                    >
+                      {d.total > 0 ? d.total : ""}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#888",
+                        marginTop: 1,
+                        fontWeight: 500,
+                      }}
+                    >
+                      {d.data}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+<div style={{ ...cardStyle, minWidth: 175, padding: 8, alignItems: "stretch" }}>
+              <div style={{ ...labelStyle, marginBottom: 6, textAlign: "center", fontWeight: 700 }}>
+                Resumo Calandra
+              </div>
+              <div style={barContainer}>
+                {barrasCalandra.map((d, idx) => (
+                  <div
+                    key={`calandra-${idx}`}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      height: "100%",
+                      minWidth: 18,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 14,
+                        height: 45,
+                        background: "#eee",
+                        borderRadius: 5,
+                        position: "relative",
+                        overflow: "hidden",
+                        marginBottom: 2,
+                        display: "flex",
+                        alignItems: "flex-end",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: "100%",
+                          height: `${d.pct * 100}%`,
+                          background: d.cor,
+                          borderRadius: 5,
+                          position: "absolute",
+                          bottom: 0,
+                          left: 0,
+                          transition: "height .2s",
+                        }}
+                      />
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: d.cor,
+                        marginTop: 2,
+                        minHeight: 15,
+                      }}
+                    >
+                      {d.total > 0 ? d.total : ""}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#888",
+                        marginTop: 1,
+                        fontWeight: 500,
+                      }}
+                    >
+                      {d.data}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </>
+        )}
       </div>
     </div>
   );

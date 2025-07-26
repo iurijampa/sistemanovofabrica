@@ -1,13 +1,27 @@
 import React, { useState } from 'react';
 import './ModalConcluirAtividade.css';
 
+const FUNCIONARIOS_BATIDA = ["Sandro", "Daniel", "Fabiano"];
+
 const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar }) => {
   const [nomeFuncionario, setNomeFuncionario] = useState('');
   const [observacao, setObservacao] = useState('');
   const [costureira, setCostureira] = useState('');
   const [destinoImpressaoAlgodao, setDestinoImpressaoAlgodao] = useState('');
+  // Estados para batida:
+  const [funcionariosBatida, setFuncionariosBatida] = useState([]);
+  const [maquinaBatida, setMaquinaBatida] = useState('');
 
   const tipoProduto = (atividade.tipo_produto || '').toLowerCase();
+
+  // Função para marcar/desmarcar funcionário
+  const handleFuncionarioBatida = (nome) => {
+    setFuncionariosBatida(prev =>
+      prev.includes(nome)
+        ? prev.filter(f => f !== nome)
+        : [...prev, nome]
+    );
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -17,9 +31,15 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar }) => {
       return;
     }
 
-    if (atividade.setorAtual === 'Batida' && !costureira.trim()) {
-      alert('Por favor, selecione a costureira.');
-      return;
+    if (atividade.setorAtual === 'Batida') {
+      if (!costureira.trim()) {
+        alert('Por favor, selecione a costureira.');
+        return;
+      }
+      if (funcionariosBatida.length === 0 || !maquinaBatida.trim()) {
+        alert('Selecione pelo menos um funcionário e a máquina utilizada.');
+        return;
+      }
     }
 
     if (atividade.setorAtual === 'Impressao' && tipoProduto === 'algodao' && !destinoImpressaoAlgodao.trim()) {
@@ -27,13 +47,14 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar }) => {
       return;
     }
 
-    console.log('[MODAL] Vai confirmar:', nomeFuncionario, observacao, costureira, destinoImpressaoAlgodao);
-
+    // Passe os novos campos para onConfirmar
     onConfirmar(
       nomeFuncionario.trim(),
       observacao.trim(),
       atividade.setorAtual === 'Batida' ? costureira.trim() : null,
-      atividade.setorAtual === 'Impressao' && tipoProduto === 'algodao' ? destinoImpressaoAlgodao.trim() : null
+      atividade.setorAtual === 'Impressao' && tipoProduto === 'algodao' ? destinoImpressaoAlgodao.trim() : null,
+      atividade.setorAtual === 'Batida' ? funcionariosBatida : null,
+      atividade.setorAtual === 'Batida' ? maquinaBatida.trim() : null
     );
   };
 
@@ -71,6 +92,45 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar }) => {
                   <option value="Nilda">Nilda</option>
                   <option value="Jordania">Jordania</option>
                   <option value="Zal">Zal</option>
+                </select>
+              </label>
+              <br />
+              {/* Novos campos para Batida */}
+              <label>
+                Quem bateu o pedido:
+                <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
+                  {FUNCIONARIOS_BATIDA.map(nome => (
+                    <label key={nome} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      background: funcionariosBatida.includes(nome) ? '#e0f7fa' : '#f5f5f5',
+                      borderRadius: 16,
+                      padding: '4px 12px',
+                      cursor: 'pointer'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={funcionariosBatida.includes(nome)}
+                        onChange={() => handleFuncionarioBatida(nome)}
+                        style={{ accentColor: '#06b6d4' }}
+                      />
+                      {nome}
+                    </label>
+                  ))}
+                </div>
+              </label>
+              <br />
+              <label>
+                Máquina utilizada:
+                <select
+                  value={maquinaBatida}
+                  onChange={(e) => setMaquinaBatida(e.target.value)}
+                  required
+                >
+                  <option value="">Selecione</option>
+                  <option value="Calandra">Calandra</option>
+                  <option value="Prensa">Prensa</option>
                 </select>
               </label>
               <br />

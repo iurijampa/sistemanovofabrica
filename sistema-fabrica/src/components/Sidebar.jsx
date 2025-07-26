@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import logo from '../assets/logo.png';
-import { FaHome, FaPlus, FaHistory, FaSignOutAlt, FaBoxes } from 'react-icons/fa';
+import { FaHome, FaPlus, FaHistory, FaSignOutAlt, FaBoxes, FaChartBar } from 'react-icons/fa';
 
 const Sidebar = ({ setorLogado, onLogout }) => {
   const [recolhido, setRecolhido] = useState(false);
@@ -80,7 +80,7 @@ const Sidebar = ({ setorLogado, onLogout }) => {
         />
       </div>
 
-      {/* Só mostra o setor quando expandido */}
+      {/* Setor */}
       {!recolhido && (
         <h3 style={{ color: '#fff', marginTop: 0, marginBottom: 20, fontWeight: 400, textAlign: 'left' }}>
           Setor: {setorLogado}
@@ -92,34 +92,19 @@ const Sidebar = ({ setorLogado, onLogout }) => {
           <li>
             <Link
               to="/"
-              style={{
-                color: '#fff',
-                textDecoration: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '8px 0',
-                justifyContent: recolhido ? 'center' : 'flex-start',
-                gap: recolhido ? 0 : 10,
-              }}
+              style={linkStyle(recolhido)}
             >
               <FaHome size={20} />
               {!recolhido && <span style={{ marginLeft: 10 }}>Dashboard</span>}
             </Link>
           </li>
+
           {setorNormalizado === 'admin' && (
             <>
               <li>
                 <Link
                   to="/cadastro-pedido"
-                  style={{
-                    color: '#fff',
-                    textDecoration: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '8px 0',
-                    justifyContent: recolhido ? 'center' : 'flex-start',
-                    gap: recolhido ? 0 : 10,
-                  }}
+                  style={linkStyle(recolhido)}
                 >
                   <FaPlus size={20} />
                   {!recolhido && <span style={{ marginLeft: 10 }}>Cadastrar Pedido</span>}
@@ -128,15 +113,7 @@ const Sidebar = ({ setorLogado, onLogout }) => {
               <li>
                 <Link
                   to="/estoque"
-                  style={{
-                    color: '#fff',
-                    textDecoration: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '8px 0',
-                    justifyContent: recolhido ? 'center' : 'flex-start',
-                    gap: recolhido ? 0 : 10,
-                  }}
+                  style={linkStyle(recolhido)}
                 >
                   <FaBoxes size={20} />
                   {!recolhido && <span style={{ marginLeft: 10 }}>Estoque</span>}
@@ -144,25 +121,31 @@ const Sidebar = ({ setorLogado, onLogout }) => {
               </li>
             </>
           )}
+
           <li>
             <Link
               to="/historico"
-              style={{
-                color: '#fff',
-                textDecoration: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '8px 0',
-                justifyContent: recolhido ? 'center' : 'flex-start',
-                gap: recolhido ? 0 : 10,
-              }}
+              style={linkStyle(recolhido)}
             >
               <FaHistory size={20} />
               {!recolhido && <span style={{ marginLeft: 10 }}>Histórico</span>}
             </Link>
           </li>
+
+          {(setorNormalizado === 'admin' || setorNormalizado === 'batida') && (
+            <li>
+              <Link
+                to="/relatorio"
+                style={linkStyle(recolhido)}
+              >
+                <FaChartBar size={20} />
+                {!recolhido && <span style={{ marginLeft: 10 }}>Relatório Batida</span>}
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
+
       <button
         onClick={onLogout}
         style={{
@@ -188,5 +171,16 @@ const Sidebar = ({ setorLogado, onLogout }) => {
     </div>
   );
 };
+
+// Estilo reutilizável
+const linkStyle = (recolhido) => ({
+  color: '#fff',
+  textDecoration: 'none',
+  display: 'flex',
+  alignItems: 'center',
+  padding: '8px 0',
+  justifyContent: recolhido ? 'center' : 'flex-start',
+  gap: recolhido ? 0 : 10,
+});
 
 export default Sidebar;
