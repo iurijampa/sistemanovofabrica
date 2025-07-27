@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import './ModalConcluirAtividade.css';
 
-const FUNCIONARIOS_BATIDA = ["Sandro", "Daniel", "Fabiano"];
-
-const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar }) => {
+const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar, batedores }) => {
   const [nomeFuncionario, setNomeFuncionario] = useState('');
   const [observacao, setObservacao] = useState('');
   const [costureira, setCostureira] = useState('');
@@ -98,27 +96,28 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar }) => {
               {/* Novos campos para Batida */}
               <label>
                 Quem bateu o pedido:
-                <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
-                  {FUNCIONARIOS_BATIDA.map(nome => (
-                    <label key={nome} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      background: funcionariosBatida.includes(nome) ? '#e0f7fa' : '#f5f5f5',
-                      borderRadius: 16,
-                      padding: '4px 12px',
-                      cursor: 'pointer'
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={funcionariosBatida.includes(nome)}
-                        onChange={() => handleFuncionarioBatida(nome)}
-                        style={{ accentColor: '#06b6d4' }}
-                      />
-                      {nome}
-                    </label>
-                  ))}
-                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 6 }}>
+  {batedores && batedores.map(b => (
+    <label key={b.id} style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4,
+      background: funcionariosBatida.includes(b.nome) ? '#e0f7fa' : '#f5f5f5',
+      borderRadius: 16,
+      padding: '4px 12px',
+      cursor: 'pointer',
+      marginBottom: 8
+    }}>
+      <input
+        type="checkbox"
+        checked={funcionariosBatida.includes(b.nome)}
+        onChange={() => handleFuncionarioBatida(b.nome)}
+        style={{ accentColor: '#06b6d4' }}
+      />
+      {b.nome}
+    </label>
+  ))}
+</div>
               </label>
               <br />
               <label>

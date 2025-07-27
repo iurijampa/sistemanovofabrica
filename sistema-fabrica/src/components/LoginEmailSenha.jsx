@@ -18,11 +18,12 @@ const LoginEmailSenha = ({ onLogin }) => {
       .single();
 
     if (error || !data) {
-      setErro('Usuário ou senha incorretos');
-    } else {
-      localStorage.setItem('usuario', JSON.stringify(data));
-      onLogin(data);
-    }
+  setErro('Usuário ou senha incorretos');
+} else {
+  console.log(data); // <-- Coloque aqui!
+  localStorage.setItem('usuario', JSON.stringify(data));
+  onLogin(data);
+}
   };
 
   return (

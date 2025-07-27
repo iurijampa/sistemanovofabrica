@@ -6,18 +6,17 @@ import CadastroPedido from './pages/CadastroPedido';
 import ModalVisualizar from './components/ModalVisualizar';
 import ModalEditar from './components/ModalEditar';
 import ModalConcluirAtividade from './components/ModalConcluirAtividade';
-import ModalRetornarAtividade from './components/ModalRetornarAtividade'; // <-- NOVO
+import ModalRetornarAtividade from './components/ModalRetornarAtividade';
 import LoginEmailSenha from './components/LoginEmailSenha';
 import useRealtimeAtividades from './hooks/useRealtimeAtividades';
 import somNotificacao from './assets/notificacao.mp3';
-import somRetorno from './assets/retorno.mp3'; 
+import somRetorno from './assets/retorno.mp3';
 import { supabase } from './supabaseClient';
 import Historico from './pages/Historico';
 import { registrarMovimentacao } from './utils/registrarMovimentacao';
 import Estoque from './pages/Estoque';
 import ModalAlertaEstoque from './components/ModalAlertaEstoque';
 import RelatorioBatedores from './pages/RelatorioBatedores';
-
 
 const LIMITES_ALERTA = {
   'AERODRY': 100,
@@ -62,9 +61,12 @@ function App() {
   const [pedidoVisualizado, setPedidoVisualizado] = useState(null);
   const [pedidoEditando, setPedidoEditando] = useState(null);
   const [pedidoParaConcluir, setPedidoParaConcluir] = useState(null);
-  const [pedidoParaRetornar, setPedidoParaRetornar] = useState(null); // <-- NOVO
+  const [pedidoParaRetornar, setPedidoParaRetornar] = useState(null);
 
   const [alertaEstoque, setAlertaEstoque] = useState([]);
+
+  // NOVO: Estado para batedores
+  const [batedores, setBatedores] = useState([]);
 
   const navigate = useNavigate();
   const audio = useRef(new Audio(somNotificacao));
@@ -81,6 +83,12 @@ function App() {
     } else {
       setAtividades(data);
     }
+  };
+
+  // NOVO: Carregar batedores do banco
+  const carregarBatedores = async () => {
+    const { data, error } = await supabase.from('batedores').select('*');
+    if (!error && data) setBatedores(data);
   };
 
   async function verificarEstoqueBaixo() {
@@ -108,6 +116,7 @@ function App() {
   useEffect(() => {
     if (usuario) {
       carregarAtividades();
+      carregarBatedores(); // <-- Carrega batedores ao logar
       if (normalize(setorLogado) === 'admin') {
         verificarEstoqueBaixo();
       }
@@ -206,126 +215,117 @@ function App() {
   };
 
   const concluirAtividade = async (
-  pedidoId,
-  nomeFuncionario,
-  observacao,
-  costureira = null,
-  destinoPersonalizado = null,
-  funcionariosBatida = null,
-  maquinaBatida = null
-) => {
-
-
-  const { data: atividadeAtual, error: fetchError } = await supabase
-    .from('atividades')
-    .select('*')
-    .eq('id', pedidoId)
-    .single();
-
-  if (fetchError || !atividadeAtual) {
-    alert('Erro ao buscar a atividade!');
-    return;
-  }
-
-  const setorAnteriorVal = atividadeAtual.setorAtual;
-  const novoSetor = destinoPersonalizado || proximoSetor(setorAnteriorVal);
-
-  const { error } = await supabase
-    .from('atividades')
-    .update({
-      status: novoSetor === 'Finalizado' ? 'concluido' : 'pendente',
-      setorAtual: novoSetor,
-      funcionarioEnvio: nomeFuncionario,
-      observacaoEnvio: observacao,
-      costureira: costureira,
-      dataEnvio: new Date().toISOString(),
-      statusRetorno: false,
-    })
-    .eq('id', pedidoId);
-
-  if (!error) {
-    const { data: atividadeAtualizada } = await supabase
+    pedidoId,
+    nomeFuncionario,
+    observacao,
+    costureira = null,
+    destinoPersonalizado = null,
+    funcionariosBatida = null,
+    maquinaBatida = null
+  ) => {
+    const { data: atividadeAtual, error: fetchError } = await supabase
       .from('atividades')
-      .select('funcionarioEnvio, observacaoEnvio')
+      .select('*')
       .eq('id', pedidoId)
       .single();
 
-    await registrarMovimentacao({
-  pedidoId,
-  setorOrigem: setorAnteriorVal,
-  setorDestino: novoSetor,
-  tipo: 'concluiu',
-  funcionarioEnvio: atividadeAtualizada?.funcionarioEnvio,
-  observacaoEnvio: atividadeAtualizada?.observacaoEnvio,
-  costureira: costureira,
-  funcionariobatida: funcionariosBatida ? funcionariosBatida.join(',') : null, // nome igual ao banco!
-  maquinabatida: maquinaBatida || null, // nome igual ao banco!
-});
+    if (fetchError || !atividadeAtual) {
+      alert('Erro ao buscar a atividade!');
+      return;
+    }
 
-    await carregarAtividades();
-  }
-};
+    const setorAnteriorVal = atividadeAtual.setorAtual;
+    const novoSetor = destinoPersonalizado || proximoSetor(setorAnteriorVal);
 
+    const { error } = await supabase
+      .from('atividades')
+      .update({
+        status: novoSetor === 'Finalizado' ? 'concluido' : 'pendente',
+        setorAtual: novoSetor,
+        funcionarioEnvio: nomeFuncionario,
+        observacaoEnvio: observacao,
+        costureira: costureira,
+        dataEnvio: new Date().toISOString(),
+        statusRetorno: false,
+      })
+      .eq('id', pedidoId);
 
+    if (!error) {
+      const { data: atividadeAtualizada } = await supabase
+        .from('atividades')
+        .select('funcionarioEnvio, observacaoEnvio')
+        .eq('id', pedidoId)
+        .single();
 
-  // NOVO: Handler do botão retornar (abre modal)
+      await registrarMovimentacao({
+        pedidoId,
+        setorOrigem: setorAnteriorVal,
+        setorDestino: novoSetor,
+        tipo: 'concluiu',
+        funcionarioEnvio: atividadeAtualizada?.funcionarioEnvio,
+        observacaoEnvio: atividadeAtualizada?.observacaoEnvio,
+        costureira: costureira,
+        funcionariobatida: funcionariosBatida ? funcionariosBatida.join(',') : null,
+        maquinabatida: maquinaBatida || null,
+      });
+
+      await carregarAtividades();
+    }
+  };
+
   const abrirModalRetornarAtividade = (pedido) => setPedidoParaRetornar(pedido);
   const fecharModalRetornarAtividade = () => setPedidoParaRetornar(null);
 
-  // NOVO: Handler de confirmação do retorno
   const retornarAtividade = async (pedidoId, nomeFuncionario, observacao) => {
-  const { data: atividadeAtual, error: fetchError } = await supabase
-    .from('atividades')
-    .select('*')
-    .eq('id', pedidoId)
-    .single();
-
-  if (fetchError || !atividadeAtual) {
-    alert('Erro ao buscar a atividade!');
-    return;
-  }
-
-  const setorOrigemVal = atividadeAtual.setorAtual;
-  const novoSetor = setorAnterior(setorOrigemVal);
-
-  if (novoSetor === setorOrigemVal) {
-    alert('Já está no primeiro setor, não pode retornar.');
-    return;
-  }
-
-  const { error } = await supabase
-    .from('atividades')
-    .update({
-      setorAtual: novoSetor,
-      funcionarioEnvio: nomeFuncionario,
-      observacaoEnvio: observacao,
-      dataEnvio: new Date().toISOString(),
-      statusRetorno: true,
-    })
-    .eq('id', pedidoId);
-
-  if (!error) {
-    const { data: atividadeAtualizada } = await supabase
+    const { data: atividadeAtual, error: fetchError } = await supabase
       .from('atividades')
-      .select('funcionarioEnvio, observacaoEnvio')
+      .select('*')
       .eq('id', pedidoId)
       .single();
 
-    await registrarMovimentacao({
-      pedidoId,
-      setorOrigem: setorOrigemVal,
-      setorDestino: novoSetor,
-      tipo: 'retornou',
-      funcionarioEnvio: atividadeAtualizada?.funcionarioEnvio,
-      observacaoEnvio: atividadeAtualizada?.observacaoEnvio,
-    });
+    if (fetchError || !atividadeAtual) {
+      alert('Erro ao buscar a atividade!');
+      return;
+    }
 
-    await carregarAtividades();
+    const setorOrigemVal = atividadeAtual.setorAtual;
+    const novoSetor = setorAnterior(setorOrigemVal);
 
-  }
-};
+    if (novoSetor === setorOrigemVal) {
+      alert('Já está no primeiro setor, não pode retornar.');
+      return;
+    }
 
+    const { error } = await supabase
+      .from('atividades')
+      .update({
+        setorAtual: novoSetor,
+        funcionarioEnvio: nomeFuncionario,
+        observacaoEnvio: observacao,
+        dataEnvio: new Date().toISOString(),
+        statusRetorno: true,
+      })
+      .eq('id', pedidoId);
 
+    if (!error) {
+      const { data: atividadeAtualizada } = await supabase
+        .from('atividades')
+        .select('funcionarioEnvio, observacaoEnvio')
+        .eq('id', pedidoId)
+        .single();
+
+      await registrarMovimentacao({
+        pedidoId,
+        setorOrigem: setorOrigemVal,
+        setorDestino: novoSetor,
+        tipo: 'retornou',
+        funcionarioEnvio: atividadeAtualizada?.funcionarioEnvio,
+        observacaoEnvio: atividadeAtualizada?.observacaoEnvio,
+      });
+
+      await carregarAtividades();
+    }
+  };
 
   const abrirVisualizacao = (pedido) => setPedidoVisualizado(pedido);
   const fecharVisualizacao = () => setPedidoVisualizado(null);
@@ -339,47 +339,45 @@ function App() {
 
   const setorLogado = usuario?.setor || 'admin';
   const handleNovaAtividade = usuario
-  ? (novaAtividade) => {
-      const setorAtividade = normalize(novaAtividade.setorAtual);
+    ? (novaAtividade) => {
+        const setorAtividade = normalize(novaAtividade.setorAtual);
 
-      if (
-        normalize(setorLogado) === 'admin' ||
-        setorAtividade === normalize(setorLogado)
-      ) {
-        setAtividades((prev) => {
-          const jaExiste = prev.some((a) => a.id === novaAtividade.id);
-          if (jaExiste) {
-            return prev.map((a) =>
-              a.id === novaAtividade.id ? novaAtividade : a
-            );
-          } else {
-            return [...prev, novaAtividade];
-          }
-        });
-
-        // 🔊 Lógica para som
-        const isAdmin = normalize(setorLogado) === 'admin';
-        const isSetorCorreto = setorAtividade === normalize(setorLogado);
-        const isRetorno = novaAtividade.statusRetorno === true;
-
-        if (!isAdmin && isSetorCorreto) {
-          try {
-            if (isRetorno) {
-              audioRetorno.current.currentTime = 0;
-              audioRetorno.current.play().catch(() => {});
+        if (
+          normalize(setorLogado) === 'admin' ||
+          setorAtividade === normalize(setorLogado)
+        ) {
+          setAtividades((prev) => {
+            const jaExiste = prev.some((a) => a.id === novaAtividade.id);
+            if (jaExiste) {
+              return prev.map((a) =>
+                a.id === novaAtividade.id ? novaAtividade : a
+              );
             } else {
-              audio.current.currentTime = 0;
-              audio.current.play().catch(() => {});
+              return [...prev, novaAtividade];
             }
-          } catch (err) {
-            console.warn('Erro ao tocar som:', err);
+          });
+
+          // 🔊 Lógica para som
+          const isAdmin = normalize(setorLogado) === 'admin';
+          const isSetorCorreto = setorAtividade === normalize(setorLogado);
+          const isRetorno = novaAtividade.statusRetorno === true;
+
+          if (!isAdmin && isSetorCorreto) {
+            try {
+              if (isRetorno) {
+                audioRetorno.current.currentTime = 0;
+                audioRetorno.current.play().catch(() => {});
+              } else {
+                audio.current.currentTime = 0;
+                audio.current.play().catch(() => {});
+              }
+            } catch (err) {
+              console.warn('Erro ao tocar som:', err);
+            }
           }
         }
       }
-    }
-  : noop;
-
-
+    : noop;
 
   const handleRemoverAtividade = (idRemovido) => {
     setAtividades((prev) => prev.filter((a) => a.id !== idRemovido));
@@ -432,7 +430,7 @@ function App() {
                 onEditar={salvarEdicao}
                 onApagar={apagarAtividade}
                 onConcluir={abrirModalConcluirAtividade}
-                onRetornar={abrirModalRetornarAtividade}  // <-- PASSA O HANDLER NOVO
+                onRetornar={abrirModalRetornarAtividade}
                 usuarioAtual={setorLogado.toLowerCase()}
               />
             }
@@ -464,26 +462,24 @@ function App() {
           <Route path="*" element={<Navigate to="/" />} />
 
           <Route
-  path="/relatorio"
-  element={
-    normalize(setorLogado) === 'admin' || normalize(setorLogado) === 'batida' ? (
-      <RelatorioBatedores />
-    ) : (
-      <Navigate to="/" />
-    )
-  }
-/>
-
+            path="/relatorio"
+            element={
+              normalize(setorLogado) === 'admin' || normalize(setorLogado) === 'batida' ? (
+                <RelatorioBatedores />
+              ) : (
+                <Navigate to="/" />
+              )
+            }
+          />
         </Routes>
 
         {pedidoVisualizado && (
-  <ModalVisualizar
-    pedido={pedidoVisualizado}
-    onClose={fecharVisualizacao}
-    usuarioAtual={setorLogado.toLowerCase()}
-  />
-)}
-
+          <ModalVisualizar
+            pedido={pedidoVisualizado}
+            onClose={fecharVisualizacao}
+            usuarioAtual={setorLogado.toLowerCase()}
+          />
+        )}
 
         {pedidoEditando && (
           <ModalEditar
@@ -493,33 +489,32 @@ function App() {
           />
         )}
 
-  {pedidoParaConcluir && (
-  <ModalConcluirAtividade
-    atividade={pedidoParaConcluir}
-    onCancelar={fecharModalConcluirAtividade}
-    onConfirmar={(
-      nome,
-      observacao,
-      costureira,
-      destinoPersonalizado,
-      funcionariosBatida,
-      maquinaBatida
-    ) => {
-      concluirAtividade(
-        pedidoParaConcluir.id,
-        nome,
-        observacao,
-        costureira,
-        destinoPersonalizado,
-        funcionariosBatida,
-        maquinaBatida
-      );
-      fecharModalConcluirAtividade();
-    }}
-  />
-)}
-
-
+        {pedidoParaConcluir && (
+          <ModalConcluirAtividade
+            atividade={pedidoParaConcluir}
+            onCancelar={fecharModalConcluirAtividade}
+            onConfirmar={(
+              nome,
+              observacao,
+              costureira,
+              destinoPersonalizado,
+              funcionariosBatida,
+              maquinaBatida
+            ) => {
+              concluirAtividade(
+                pedidoParaConcluir.id,
+                nome,
+                observacao,
+                costureira,
+                destinoPersonalizado,
+                funcionariosBatida,
+                maquinaBatida
+              );
+              fecharModalConcluirAtividade();
+            }}
+            batedores={batedores} // <-- Passa a lista dinâmica aqui!
+          />
+        )}
 
         {pedidoParaRetornar && (
           <ModalRetornarAtividade
