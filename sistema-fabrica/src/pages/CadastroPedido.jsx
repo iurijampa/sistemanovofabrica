@@ -84,7 +84,7 @@ const CadastroPedido = ({ onCadastrar }) => {
   const [dataEntrega, setDataEntrega] = useState('');
   const [urgente, setUrgente] = useState(false);
   const [malha, setMalha] = useState('');
-  const [quantidade, setQuantidade] = useState(1);
+  const [quantidade, setQuantidade] = useState(0);
   const [tipoProduto, setTipoProduto] = useState('');
 
   const handleAdicionarImagemExtra = (e) => {
@@ -103,7 +103,10 @@ const CadastroPedido = ({ onCadastrar }) => {
       alert('Selecione a imagem principal');
       return;
     }
-
+if (quantidade < 1) { // validação obrigatória
+    alert('Informe a quantidade de peças (mínimo 1).');
+    return;
+  }
     // Atualizar estoque antes de cadastrar pedido
     if (malha && quantidade > 0) {
       const { data: estoque, error: erroEstoque } = await supabase
@@ -194,12 +197,13 @@ dataParaProducao.setDate(dataParaProducao.getDate() - 5); // Subtrai 5 dias
   imagensExtras: JSON.stringify(urlsExtras),
   descricao,
   setorAtual,
+  dataEnvio: new Date().toISOString(), // <-- ADICIONE ESTA LINHA!
   dataEntrega: dataParaProducao.toISOString(),
   dataEntregaCliente: dataEntregaReal.toISOString(),
   urgente,
   tipo_produto: tipoProduto,
-  quantidade_pecas: quantidade,       // <--- ADICIONAR
-  tipo_malha: malha                   // <--- ADICIONAR
+  quantidade_pecas: quantidade,
+  tipo_malha: malha
 };
 
 

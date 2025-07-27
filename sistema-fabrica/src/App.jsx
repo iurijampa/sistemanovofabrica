@@ -234,21 +234,33 @@ function App() {
       return;
     }
 
+console.log('costureira recebida:', costureira, 'costureira salva:', atividadeAtual.costureira);
+
     const setorAnteriorVal = atividadeAtual.setorAtual;
     const novoSetor = destinoPersonalizado || proximoSetor(setorAnteriorVal);
 
     const { error } = await supabase
-      .from('atividades')
-      .update({
-        status: novoSetor === 'Finalizado' ? 'concluido' : 'pendente',
-        setorAtual: novoSetor,
-        funcionarioEnvio: nomeFuncionario,
-        observacaoEnvio: observacao,
-        costureira: costureira,
-        dataEnvio: new Date().toISOString(),
-        statusRetorno: false,
-      })
-      .eq('id', pedidoId);
+  .from('atividades')
+  .update({
+    status: novoSetor === 'Finalizado' ? 'concluido' : 'pendente',
+    setorAtual: novoSetor,
+    funcionarioEnvio: nomeFuncionario,
+    observacaoEnvio: observacao,
+    // Mantém o valor salvo se existir, senão usa o novo, nunca sobrescreve por vazio/null
+    costureira:
+      atividadeAtual.costureira !== null &&
+      atividadeAtual.costureira !== undefined &&
+      atividadeAtual.costureira !== ''
+        ? atividadeAtual.costureira
+        : (costureira !== null &&
+           costureira !== undefined &&
+           costureira !== ''
+            ? costureira
+            : null),
+    dataEnvio: new Date().toISOString(),
+    statusRetorno: false,
+  })
+  .eq('id', pedidoId);
 
     if (!error) {
       const { data: atividadeAtualizada } = await supabase

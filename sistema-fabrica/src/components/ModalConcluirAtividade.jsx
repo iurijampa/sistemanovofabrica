@@ -47,13 +47,15 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar, batedores 
 
     // Passe os novos campos para onConfirmar
     onConfirmar(
-      nomeFuncionario.trim(),
-      observacao.trim(),
-      atividade.setorAtual === 'Batida' ? costureira.trim() : null,
-      atividade.setorAtual === 'Impressao' && tipoProduto === 'algodao' ? destinoImpressaoAlgodao.trim() : null,
-      atividade.setorAtual === 'Batida' ? funcionariosBatida : null,
-      atividade.setorAtual === 'Batida' ? maquinaBatida.trim() : null
-    );
+  nomeFuncionario.trim(),
+  observacao.trim(),
+  atividade.setorAtual === 'Batida'
+    ? costureira.trim()
+    : (atividade.costureira || ''), // <-- mantém o valor já salvo!
+  atividade.setorAtual === 'Impressao' && tipoProduto === 'algodao' ? destinoImpressaoAlgodao.trim() : null,
+  atividade.setorAtual === 'Batida' ? funcionariosBatida : null,
+  atividade.setorAtual === 'Batida' ? maquinaBatida.trim() : null
+);
   };
 
   return (

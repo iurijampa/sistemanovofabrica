@@ -67,7 +67,7 @@ const TabelaAtividades = ({
             ) : (
               <>
                 <th>Setor</th>
-                {(isAdmin || isCostura) && <th>Costureira</th>}
+                {(isAdmin || isCostura || usuarioAtual === 'embalagem' || atividades.some(a => a.setorAtual === 'Finalizado')) && <th>Costureira</th>}
                 <th>Enviado Por</th>
                 <th>Observação</th>
               </>
@@ -77,9 +77,20 @@ const TabelaAtividades = ({
         </thead>
         <tbody>
           {atividades.map((a) => {
-            const setorParaNovo = isAdmin ? a.setorAtual : usuarioAtual;
-            const mostrarNovo = a.setorAtual && isNovo(a.id, setorParaNovo, a.dataEnvio);
+  const setorParaNovo = isAdmin
+    ? a.setorAtual?.toLowerCase()
+    : usuarioAtual?.toLowerCase();
+  const mostrarNovo = a.setorAtual && isNovo(a.id, setorParaNovo, a.dataEnvio);
 
+  // Adicione este log para depuração:
+  console.log('DEBUG NOVO', {
+    pedido: a.pedido,
+    setorAtual: a.setorAtual,
+    setorParaNovo,
+    mostrarNovo,
+    chave: `visualizado_${a.id}_${setorParaNovo}`,
+    visualizado: localStorage.getItem(`visualizado_${a.id}_${setorParaNovo}`)
+  });
             return (
               <tr
                 key={a.id}
@@ -220,9 +231,9 @@ const TabelaAtividades = ({
                       </span>
                     </td>
 
-                    {(isAdmin || isCostura) && (
-                      <td>{a.costureira || '-'}</td>
-                    )}
+                    {(isAdmin || isCostura || usuarioAtual === 'embalagem' || a.setorAtual === 'Finalizado') && (
+  <td>{a.costureira || '-'}</td>
+)}
 
                     <td>
                       {a.funcionarioEnvio || '-'}

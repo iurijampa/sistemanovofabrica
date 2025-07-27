@@ -201,10 +201,15 @@ const Dashboard = ({
   };
 
   const handleCardClick = (setor) => {
-    setSetorCardSelecionado(setor);
-    setSetorFiltro('');
-    setFiltro('');
-  };
+  setSetorCardSelecionado(setor);
+  setSetorFiltro('');
+  setFiltro('');
+  if (setor === 'Finalizado') {
+    setAba('finalizados');
+  } else {
+    setAba('andamento');
+  }
+};
 
   const handleLimparSetorSelecionado = () => {
     setSetorCardSelecionado('');
@@ -213,12 +218,12 @@ const Dashboard = ({
   };
 
   const handleVisualizar = (a) => {
-    onVisualizar(a);
-    if (a.setorAtual && a.id && a.dataEnvio) {
-      marcarVisualizado(a.id, a.setorAtual, a.dataEnvio);
-      setVisualizados(v => ({ ...v, [`${a.id}_${a.setorAtual}`]: Date.now() }));
-    }
-  };
+  onVisualizar(a);
+  if (a.setorAtual && a.id && a.dataEnvio) {
+    marcarVisualizado(a.id, a.setorAtual.toLowerCase(), a.dataEnvio);
+    setVisualizados(v => ({ ...v, [`${a.id}_${a.setorAtual.toLowerCase()}`]: Date.now() }));
+  }
+};
 
   useEffect(() => {
     const timer = setInterval(() => setVisualizados(v => ({ ...v })), 30000);
@@ -426,7 +431,7 @@ const Dashboard = ({
             <TabelaAtividades
               atividades={atividadesSublimacao}
               isAdmin={isAdmin}
-              usuarioAtual={usuarioAtual}
+              usuarioAtual={usuarioAtual?.toLowerCase()} 
               onVisualizar={handleVisualizar}
               onAbrirEdicao={onAbrirEdicao}
               onApagar={onApagar}
@@ -444,7 +449,7 @@ const Dashboard = ({
             <TabelaAtividades
               atividades={atividadesAlgodao}
               isAdmin={isAdmin}
-              usuarioAtual={usuarioAtual}
+              usuarioAtual={usuarioAtual?.toLowerCase()}
               onVisualizar={handleVisualizar}
               onAbrirEdicao={onAbrirEdicao}
               onApagar={onApagar}
@@ -462,7 +467,7 @@ const Dashboard = ({
         <TabelaAtividades
           atividades={atividadesOrdenadas}
           isAdmin={isAdmin}
-          usuarioAtual={usuarioAtual}
+          usuarioAtual={usuarioAtual?.toLowerCase()} 
           onVisualizar={handleVisualizar}
           onAbrirEdicao={onAbrirEdicao}
           onApagar={onApagar}

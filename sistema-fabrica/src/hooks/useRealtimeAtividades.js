@@ -2,60 +2,63 @@ import { useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 
 /**
- * Hook para escutar atividades em tempo real, com filtro por setor.
- * @param {function} onNovaAtividade - callback ao inserir/alterar atividade
- * @param {function} onAtividadeRemovida - callback ao remover atividade
- * @param {string|null} setorFiltro - nome do setor ("Gabarito", "Impressao", etc) ou null para admin (ver tudo)
+ * Hook para escutar atividades em tempo real, filtrando por setor para INSERT/UPDATE,
+ * mas recebendo todos os DELETE para sumir em tempo real.
  */
 const useRealtimeAtividades = (onNovaAtividade, onAtividadeRemovida, setorFiltro) => {
   useEffect(() => {
-    const canal = supabase
-      .channel('atividades-channel')
+    // Canal para INSERT/UPDATE filtrado por setor
+    const canalSetor = supabase
+      .channel('atividades-setor')
       .on(
         'postgres_changes',
         {
-          event: '*', // Escuta INSERT, UPDATE e DELETE
+          event: '*',
           schema: 'public',
           table: 'atividades',
-          // Adiciona filtro para o setor, se necessário
           filter: setorFiltro ? `setorAtual=eq.${setorFiltro}` : undefined,
         },
         (payload) => {
           const { eventType, new: novaAtividade, old: atividadeAntiga } = payload;
-
-          if (eventType === 'INSERT') {
-            onNovaAtividade(novaAtividade);
-          }
-
+          if (eventType === 'INSERT') onNovaAtividade(novaAtividade);
           if (eventType === 'UPDATE') {
-  const setorAntes = atividadeAntiga?.setorAtual;
-  const setorDepois = novaAtividade?.setorAtual;
-  const retornoAntes = atividadeAntiga?.statusRetorno;
-  const retornoDepois = novaAtividade?.statusRetorno;
-
-  // Dispara notificação se:
-  // - mudou de setor OU
-  // - retornou para o mesmo setor, mas foi marcado como retorno
-  if (
-    setorAntes !== setorDepois ||
-    (setorAntes === setorDepois && retornoAntes !== true && retornoDepois === true)
-  ) {
-    onNovaAtividade(novaAtividade);
-  }
-}
-
-
-          if (eventType === 'DELETE') {
-            if (onAtividadeRemovida) {
-              onAtividadeRemovida(atividadeAntiga.id);
+            const setorAntes = atividadeAntiga?.setorAtual;
+            const setorDepois = novaAtividade?.setorAtual;
+            const retornoAntes = atividadeAntiga?.statusRetorno;
+            const retornoDepois = novaAtividade?.statusRetorno;
+            if (
+              setorAntes !== setorDepois ||
+              (setorAntes === setorDepois && retornoAntes !== true && retornoDepois === true)
+            ) {
+              onNovaAtividade(novaAtividade);
             }
           }
         }
       )
       .subscribe();
 
+    // Canal para DELETE sem filtro (todos recebem)
+    const canalDelete = supabase
+      .channel('atividades-delete')
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'atividades',
+        },
+        (payload) => {
+          const { old: atividadeAntiga } = payload;
+          if (onAtividadeRemovida) {
+            onAtividadeRemovida(atividadeAntiga.id);
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(canal);
+      supabase.removeChannel(canalSetor);
+      supabase.removeChannel(canalDelete);
     };
   }, [onNovaAtividade, onAtividadeRemovida, setorFiltro]);
 };

@@ -21,6 +21,7 @@ const ModalEditar = ({ pedido, onClose, onSalvar }) => {
     dataEntrega: pedido.dataEntrega.split('T')[0],
     imagem: pedido.imagem || '',
     imagensExtras: parseImagensExtras(pedido.imagensExtras),
+    quantidade_pecas: pedido.quantidade_pecas || '', // <-- ADICIONADO
   });
 
   const [tipoProduto, setTipoProduto] = useState(pedido.tipo_produto || '');
@@ -39,6 +40,7 @@ const ModalEditar = ({ pedido, onClose, onSalvar }) => {
       dataEntrega: pedido.dataEntrega.split('T')[0],
       imagem: pedido.imagem || '',
       imagensExtras: parseImagensExtras(pedido.imagensExtras),
+      quantidade_pecas: pedido.quantidade_pecas || '', // <-- ADICIONADO
     });
     setUrgente(!!pedido.urgente);
     setNovasImagensExtras([]);
@@ -83,6 +85,7 @@ const ModalEditar = ({ pedido, onClose, onSalvar }) => {
       ...formData,
       urgente: !!urgente,
       tipo_produto: tipoProduto,
+      quantidade_pecas: formData.quantidade_pecas, // <-- GARANTA QUE VAI JUNTO
     };
 
     // Upload imagem principal nova
@@ -207,6 +210,20 @@ const ModalEditar = ({ pedido, onClose, onSalvar }) => {
               name="dataEntrega"
               type="date"
               value={formData.dataEntrega}
+              onChange={handleChange}
+              required
+            />
+          </label>
+          <br />
+
+          {/* Quantidade de Peças */}
+          <label>
+            Quantidade de Peças:
+            <input
+              name="quantidade_pecas"
+              type="number"
+              min="1"
+              value={formData.quantidade_pecas}
               onChange={handleChange}
               required
             />
