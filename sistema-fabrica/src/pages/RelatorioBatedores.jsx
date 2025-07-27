@@ -4,17 +4,25 @@ import ResumoSetor from '../components/ResumoSetor';
 import Modal from "react-modal";
 import "./RelatorioBatedores.css";
 
-const usuario = JSON.parse(localStorage.getItem('usuario'));
-const setorLogado = usuario?.setor;
-
-const normalizarNome = (nome) =>
-  nome
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
 const RelatorioBatedores = () => {
+  const [usuario, setUsuario] = useState(() => JSON.parse(localStorage.getItem('usuario')));
+  const setorLogado = usuario?.setor;
+
+  useEffect(() => {
+    const atualizarUsuario = () => {
+      setUsuario(JSON.parse(localStorage.getItem('usuario')));
+    };
+    window.addEventListener('storage', atualizarUsuario);
+    return () => window.removeEventListener('storage', atualizarUsuario);
+  }, []);
+
+  const normalizarNome = (nome) =>
+    nome
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
   // Estados gerais
   const [diaExpandido, setDiaExpandido] = useState(null);
   const [movimentacoesMensal, setMovimentacoesMensal] = useState([]);
