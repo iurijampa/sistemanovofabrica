@@ -28,19 +28,37 @@ const formatNumber = n => n?.toLocaleString('pt-BR') ?? '0';
 
 function calcularMedias(movimentacoes, malhas) {
   const hoje = new Date();
-  const inicioSemana = new Date(hoje);
-  inicioSemana.setDate(hoje.getDate() - hoje.getDay());
-  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
 
   const stats = {};
   for (const malha of malhas) {
-    const m = movimentacoes.filter(mv => mv.malha === malha && mv.tipo === 'saida');
-    stats[malha] = {
-      diaria: m.filter(mv => new Date(mv.data).toDateString() === hoje.toDateString()).reduce((sum, mv) => sum + mv.quantidade, 0),
-      semanal: m.filter(mv => new Date(mv.data) >= inicioSemana).reduce((sum, mv) => sum + mv.quantidade, 0),
-      mensal: m.filter(mv => new Date(mv.data) >= inicioMes).reduce((sum, mv) => sum + mv.quantidade, 0),
-      total: m.reduce((sum, mv) => sum + mv.quantidade, 0),
+    const saidas = movimentacoes.filter(mv => mv.malha === malha && mv.tipo === 'saida');
+    if (saidas.length === 0) {
+      stats[malha] = { diaria: 0, semanal: 0, mensal: 0, total: 0 };
+      continue;
     }
+
+    // Ordena por data
+    const datas = saidas.map(mv => new Date(mv.data)).sort((a, b) => a - b);
+    const primeira = datas[0];
+    const ultima = datas[datas.length - 1];
+
+    // Dias totais (inclui hoje)
+    const diasTotais = Math.max(1, Math.ceil((hoje - primeira) / (1000 * 60 * 60 * 24)) + 1);
+
+    // Semanas totais
+    const semanasTotais = Math.max(1, Math.ceil(diasTotais / 7));
+
+    // Meses totais
+    const mesesTotais = Math.max(1, (hoje.getFullYear() - primeira.getFullYear()) * 12 + (hoje.getMonth() - primeira.getMonth()) + 1);
+
+    const totalSaidas = saidas.reduce((sum, mv) => sum + mv.quantidade, 0);
+
+    stats[malha] = {
+      diaria: Math.round(totalSaidas / diasTotais),
+      semanal: Math.round(totalSaidas / semanasTotais),
+      mensal: Math.round(totalSaidas / mesesTotais),
+      total: totalSaidas,
+    };
   }
   return stats;
 }

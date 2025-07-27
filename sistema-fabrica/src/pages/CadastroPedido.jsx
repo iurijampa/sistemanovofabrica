@@ -86,6 +86,7 @@ const CadastroPedido = ({ onCadastrar }) => {
   const [malha, setMalha] = useState('');
   const [quantidade, setQuantidade] = useState(0);
   const [tipoProduto, setTipoProduto] = useState('');
+  const [carregando, setCarregando] = useState(false);
 
   const handleAdicionarImagemExtra = (e) => {
     const arquivos = Array.from(e.target.files);
@@ -94,19 +95,25 @@ const CadastroPedido = ({ onCadastrar }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (carregando) return; // Evita duplo clique
+
+    setCarregando(true);
 
     if (!tipoProduto) {
       alert('Selecione o tipo do produto.');
+      setCarregando(false);
       return;
     }
     if (!imagemPrincipal) {
       alert('Selecione a imagem principal');
+      setCarregando(false);
       return;
     }
-if (quantidade < 1) { // validação obrigatória
-    alert('Informe a quantidade de peças (mínimo 1).');
-    return;
-  }
+    if (quantidade < 1) {
+      alert('Informe a quantidade de peças (mínimo 1).');
+      setCarregando(false);
+      return;
+    }
     // Atualizar estoque antes de cadastrar pedido
     if (malha && quantidade > 0) {
       const { data: estoque, error: erroEstoque } = await supabase
@@ -223,6 +230,7 @@ dataParaProducao.setDate(dataParaProducao.getDate() - 5); // Subtrai 5 dias
     setMalha('');
     setQuantidade(1);
     setTipoProduto('');
+    setCarregando(false); // Libera o botão novamente
   };
   
   return (
@@ -424,7 +432,9 @@ dataParaProducao.setDate(dataParaProducao.getDate() - 5); // Subtrai 5 dias
             Marcar como URGENTE
           </label>
         </div>
-        <button type="submit">Cadastrar Pedido</button>
+        <button type="submit" disabled={carregando}>
+  {carregando ? 'Carregando...' : 'Cadastrar Pedido'}
+</button>
       </form>
     </div>
   );
