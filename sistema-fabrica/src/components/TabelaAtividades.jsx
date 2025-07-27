@@ -82,15 +82,7 @@ const TabelaAtividades = ({
     : usuarioAtual?.toLowerCase();
   const mostrarNovo = a.setorAtual && isNovo(a.id, setorParaNovo, a.dataEnvio);
 
-  // Adicione este log para depuração:
-  console.log('DEBUG NOVO', {
-    pedido: a.pedido,
-    setorAtual: a.setorAtual,
-    setorParaNovo,
-    mostrarNovo,
-    chave: `visualizado_${a.id}_${setorParaNovo}`,
-    visualizado: localStorage.getItem(`visualizado_${a.id}_${setorParaNovo}`)
-  });
+
             return (
               <tr
                 key={a.id}
