@@ -28,16 +28,22 @@ function contarDiasUteis(startDate, endDate) {
 }
 
 function getSemanaLabels() {
-  const hoje = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-  const diaSemana = hoje.getDay();
+  // Obter a data atual no fuso de São Paulo
+  const nowSP = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  // Extrair ano, mês, dia
+  const ano = nowSP.getFullYear();
+  const mes = nowSP.getMonth();
+  const dia = nowSP.getDate();
+  // Descobrir o dia da semana (0=domingo, 1=segunda, ...)
+  const diaSemana = nowSP.getDay();
+  // Calcular quantos dias voltar para chegar na segunda-feira
   const diasParaSegunda = diaSemana === 0 ? 6 : diaSemana - 1;
-  const segunda = new Date(hoje);
-  segunda.setDate(hoje.getDate() - diasParaSegunda);
-
+  // Criar a data da segunda-feira (sempre no fuso de SP)
+  const segunda = new Date(ano, mes, dia - diasParaSegunda);
+  // Gerar os próximos 6 dias (segunda a sábado)
   const dias = [];
   for (let i = 0; i < 6; i++) {
-    const d = new Date(segunda);
-    d.setDate(segunda.getDate() + i);
+    const d = new Date(segunda.getFullYear(), segunda.getMonth(), segunda.getDate() + i);
     dias.push({
       date: d,
       label: d.toLocaleDateString("pt-BR", { weekday: "short" }),
