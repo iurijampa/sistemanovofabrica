@@ -234,33 +234,34 @@ function App() {
       return;
     }
 
-console.log('costureira recebida:', costureira, 'costureira salva:', atividadeAtual.costureira);
+    // NOVO: Verifica se veio de retorno
+    const veioDeRetorno = atividadeAtual.statusRetorno === true;
 
     const setorAnteriorVal = atividadeAtual.setorAtual;
     const novoSetor = destinoPersonalizado || proximoSetor(setorAnteriorVal);
 
     const { error } = await supabase
-  .from('atividades')
-  .update({
-    status: novoSetor === 'Finalizado' ? 'concluido' : 'pendente',
-    setorAtual: novoSetor,
-    funcionarioEnvio: nomeFuncionario,
-    observacaoEnvio: observacao,
-    // Mantém o valor salvo se existir, senão usa o novo, nunca sobrescreve por vazio/null
-    costureira:
-      atividadeAtual.costureira !== null &&
-      atividadeAtual.costureira !== undefined &&
-      atividadeAtual.costureira !== ''
-        ? atividadeAtual.costureira
-        : (costureira !== null &&
-           costureira !== undefined &&
-           costureira !== ''
-            ? costureira
-            : null),
-    dataEnvio: new Date().toISOString(),
-    statusRetorno: false,
-  })
-  .eq('id', pedidoId);
+      .from('atividades')
+      .update({
+        status: novoSetor === 'Finalizado' ? 'concluido' : 'pendente',
+        setorAtual: novoSetor,
+        funcionarioEnvio: nomeFuncionario,
+        observacaoEnvio: observacao,
+        // Mantém o valor salvo se existir, senão usa o novo, nunca sobrescreve por vazio/null
+        costureira:
+          atividadeAtual.costureira !== null &&
+          atividadeAtual.costureira !== undefined &&
+          atividadeAtual.costureira !== ''
+            ? atividadeAtual.costureira
+            : (costureira !== null &&
+               costureira !== undefined &&
+               costureira !== ''
+                ? costureira
+                : null),
+        dataEnvio: new Date().toISOString(),
+        statusRetorno: false,
+      })
+      .eq('id', pedidoId);
 
     if (!error) {
       const { data: atividadeAtualizada } = await supabase
@@ -270,16 +271,16 @@ console.log('costureira recebida:', costureira, 'costureira salva:', atividadeAt
         .single();
 
       await registrarMovimentacao({
-        pedidoId,
-        setorOrigem: setorAnteriorVal,
-        setorDestino: novoSetor,
-        tipo: 'concluiu',
-        funcionarioEnvio: atividadeAtualizada?.funcionarioEnvio,
-        observacaoEnvio: atividadeAtualizada?.observacaoEnvio,
-        costureira: costureira,
-        funcionariobatida: funcionariosBatida ? funcionariosBatida.join(',') : null,
-        maquinabatida: maquinaBatida || null,
-      });
+  pedidoId,
+  setorOrigem: setorAnteriorVal,
+  setorDestino: novoSetor,
+  tipo: veioDeRetorno ? 'retornou' : 'concluiu', // padronizado!
+  funcionarioEnvio: atividadeAtualizada?.funcionarioEnvio,
+  observacaoEnvio: atividadeAtualizada?.observacaoEnvio,
+  costureira: costureira,
+  funcionariobatida: funcionariosBatida ? funcionariosBatida.join(',') : null,
+  maquinabatida: maquinaBatida || null,
+});
 
       await carregarAtividades();
     }
