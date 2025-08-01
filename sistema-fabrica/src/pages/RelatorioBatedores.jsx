@@ -46,13 +46,14 @@ const RelatorioBatedores = () => {
       const inicioMes = `${anoMensalSelecionado}-${String(mesMensalSelecionado).padStart(2, "0")}-01`;
       const fimMes = new Date(anoMensalSelecionado, mesMensalSelecionado, 0).getDate();
       const fimMesStr = `${anoMensalSelecionado}-${String(mesMensalSelecionado).padStart(2, "0")}-${String(fimMes).padStart(2, "0")}`;
+      const fimMesStrFull = `${fimMesStr} 23:59:59.999999`;
       const { data: movimentacoes } = await supabase
         .from("movimentacoes")
         .select("data, pedido_id, maquinabatida, funcionariobatida")
         .eq("setor_origem", "Batida")
         .eq("tipo", "concluiu")
         .gte("data", inicioMes)
-        .lte("data", fimMesStr);
+        .lte("data", fimMesStrFull);
 
       const idsPedidos = movimentacoes?.map(m => m.pedido_id) || [];
       const { data: atividadesRelacionadas } = await supabase
