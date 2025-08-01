@@ -92,6 +92,51 @@ const Dashboard = ({
   const [contadorSetor, setContadorSetor] = useState({ fila: 0, concluidas: 0 });
   const [visualizados, setVisualizados] = useState({});
 
+  // Filtro de costureira
+  const [costureiraFiltro, setCostureiraFiltro] = useState('');
+  const mostrarFiltroCostureira =
+  (isAdmin && setorCardSelecionado === 'Costura') ||
+  (!isAdmin && usuarioAtual === 'costura');
+
+  // Lista única de costureiras (só para setor Costura)
+  const atividadesOrdenadas = React.useMemo(() => {
+    const atividadesFiltradas = atividades.filter((a) => {
+      const statusOk =
+        !isAdmin ||
+        (aba === 'andamento' ? a.setorAtual !== 'Finalizado' : a.setorAtual === 'Finalizado');
+      const termo = (filtro || '').toLowerCase().trim();
+      const setorFiltroAtivo = setorCardSelecionado || setorFiltro;
+      const setorOk = !setorFiltroAtivo || a.setorAtual === setorFiltroAtivo;
+      if (!termo && setorOk && statusOk) return true;
+      const pedido = (a.pedido || '').toLowerCase().trim();
+      const cliente = (a.cliente || '').toLowerCase().trim();
+      const dataEntregaFormatada = a.dataEntrega
+        ? criarDataLocal(a.dataEntrega).toLocaleDateString()
+        : '';
+      return (
+        setorOk &&
+        statusOk &&
+        (pedido.includes(termo) ||
+          cliente.includes(termo) ||
+          dataEntregaFormatada.includes(termo))
+      );
+    });
+
+    // Filtro de costureira
+    if (mostrarFiltroCostureira && costureiraFiltro) {
+      return atividadesFiltradas.filter(a => a.costureira === costureiraFiltro);
+    }
+    return atividadesFiltradas;
+  }, [atividades, filtro, setorCardSelecionado, setorFiltro, aba, isAdmin, costureiraFiltro, mostrarFiltroCostureira]);
+
+  const costureirasUnicas = React.useMemo(() => {
+  const set = new Set();
+  atividades
+    .filter(a => a.setorAtual === 'Costura' && a.costureira)
+    .forEach(a => set.add(a.costureira));
+  return Array.from(set);
+}, [atividades]);
+
   useEffect(() => {
     const buscarContagemPorSetor = async () => {
       const { data, error } = await supabase
@@ -148,92 +193,42 @@ const Dashboard = ({
     return 'red';
   };
 
-  const normalizar = (str) => str?.toString().toLowerCase().trim() || '';
-  const setorFiltroAtivo = setorCardSelecionado || setorFiltro;
-
-  const atividadesFiltradas = atividades.filter((a) => {
-    const statusOk =
-      !isAdmin ||
-      (aba === 'andamento' ? a.setorAtual !== 'Finalizado' : a.setorAtual === 'Finalizado');
-    const termo = normalizar(filtro);
-    const setorOk = !setorFiltroAtivo || a.setorAtual === setorFiltroAtivo;
-    if (!termo && setorOk && statusOk) return true;
-    const pedido = normalizar(a.pedido);
-    const cliente = normalizar(a.cliente);
-    const dataEntregaFormatada = a.dataEntrega
-      ? criarDataLocal(a.dataEntrega).toLocaleDateString()
-      : '';
-    return (
-      setorOk &&
-      statusOk &&
-      (pedido.includes(termo) ||
-        cliente.includes(termo) ||
-        dataEntregaFormatada.includes(termo))
-    );
-  });
-
-  const atividadesOrdenadas = [...atividadesFiltradas].sort((a, b) => {
-    if (!isAdmin) {
-      if (a.statusRetorno && !b.statusRetorno) return -1;
-      if (!a.statusRetorno && b.statusRetorno) return 1;
-    }
-    if (a.setorAtual === 'Embalagem' && b.setorAtual !== 'Embalagem') return -1;
-    if (b.setorAtual === 'Embalagem' && a.setorAtual !== 'Embalagem') return 1;
-    const dataA = criarDataLocal(a.dataEntrega);
-    const dataB = criarDataLocal(b.dataEntrega);
-    return dataA - dataB;
-  });
-
-  const atividadesSublimacao = atividadesOrdenadas.filter(
-    (a) => (a.tipo_produto || '').toLowerCase() === 'sublimacao'
-  );
-  const atividadesAlgodao = atividadesOrdenadas.filter(
-    (a) => (a.tipo_produto || '').toLowerCase() === 'algodao'
-  );
-
-  const deveMostrarBotaoRetornar = (setor, usuarioAtual) => {
-    return (
-      !isAdmin &&
-      setoresComuns.includes(usuarioAtual) &&
-      setor.toLowerCase() !== 'gabarito' &&
-      setor.toLowerCase() !== 'finalizado'
-    );
-  };
-
   const handleCardClick = (setor) => {
-  setSetorCardSelecionado(setor);
-  setSetorFiltro('');
-  setFiltro('');
-  if (setor === 'Finalizado') {
-    setAba('finalizados');
-  } else {
-    setAba('andamento');
-  }
-};
+    setSetorCardSelecionado(setor);
+    setSetorFiltro('');
+    setFiltro('');
+    setCostureiraFiltro('');
+    if (setor === 'Finalizado') {
+      setAba('finalizados');
+    } else {
+      setAba('andamento');
+    }
+  };
 
   const handleLimparSetorSelecionado = () => {
     setSetorCardSelecionado('');
     setSetorFiltro('');
     setFiltro('');
+    setCostureiraFiltro('');
   };
 
   const handleVisualizar = (a) => {
-  onVisualizar(a);
-  if (a.setorAtual && a.id && a.dataEnvio) {
-    marcarVisualizado(a.id, a.setorAtual.toLowerCase(), a.dataEnvio);
-    setVisualizados(v => ({ ...v, [`${a.id}_${a.setorAtual.toLowerCase()}`]: Date.now() }));
-  }
-};
+    onVisualizar(a);
+    if (a.setorAtual && a.id && a.dataEnvio) {
+      marcarVisualizado(a.id, a.setorAtual.toLowerCase(), a.dataEnvio);
+      setVisualizados(v => ({ ...v, [`${a.id}_${a.setorAtual.toLowerCase()}`]: Date.now() }));
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setVisualizados(v => ({ ...v })), 30000);
     return () => clearInterval(timer);
   }, []);
 
-  // --- AQUI O PONTO DO AJUSTE ---
   const adminVisualizandoImpressao =
     isAdmin && (setorCardSelecionado === 'Impressao' || setorFiltro === 'Impressao');
 
+  // --- Filtros padrão, agora com filtro costureira junto ---
   return (
     <div className="dashboard">
       <h1>Dashboard</h1>
@@ -324,7 +319,6 @@ const Dashboard = ({
         </div>
       )}
 
-      {/* Filtros padrão */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 16 }}>
         {isAdmin && (
           <select
@@ -332,6 +326,7 @@ const Dashboard = ({
             onChange={(e) => {
               setSetorFiltro(e.target.value);
               setSetorCardSelecionado('');
+              setCostureiraFiltro('');
             }}
             style={{ padding: 8 }}
           >
@@ -350,6 +345,21 @@ const Dashboard = ({
           onChange={(e) => setFiltro(e.target.value)}
           style={{ padding: '8px', width: '100%', maxWidth: '400px' }}
         />
+        {mostrarFiltroCostureira && costureirasUnicas.length > 0 && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>Costureira:</span>
+            <select
+              value={costureiraFiltro}
+              onChange={e => setCostureiraFiltro(e.target.value)}
+              style={{ padding: '4px 8px', borderRadius: 6 }}
+            >
+              <option value="">Todas</option>
+              {costureirasUnicas.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+        )}
         {isAdmin && (
           <>
             <button
@@ -390,7 +400,9 @@ const Dashboard = ({
           {/* Sublimação */}
           <div style={{ flex: 1, minWidth: 350 }}>
             <TabelaAtividades
-              atividades={atividadesSublimacao}
+              atividades={atividadesOrdenadas.filter(
+                (a) => (a.tipo_produto || '').toLowerCase() === 'sublimacao'
+              )}
               isAdmin={isAdmin}
               usuarioAtual="impressao"
               onVisualizar={handleVisualizar}
@@ -401,14 +413,18 @@ const Dashboard = ({
               isNovo={isNovo}
               badgeColors={badgeColors}
               getPrazoBadgeClass={getPrazoBadgeClass}
-              tituloMoldura={`Sublimação (${atividadesSublimacao.length})`}
+              tituloMoldura={`Sublimação (${atividadesOrdenadas.filter(
+                (a) => (a.tipo_produto || '').toLowerCase() === 'sublimacao'
+              ).length})`}
               corMoldura="#3182ce"
             />
           </div>
           {/* Algodão */}
           <div style={{ flex: 1, minWidth: 350 }}>
             <TabelaAtividades
-              atividades={atividadesAlgodao}
+              atividades={atividadesOrdenadas.filter(
+                (a) => (a.tipo_produto || '').toLowerCase() === 'algodao'
+              )}
               isAdmin={isAdmin}
               usuarioAtual="impressao"
               onVisualizar={handleVisualizar}
@@ -419,7 +435,9 @@ const Dashboard = ({
               isNovo={isNovo}
               badgeColors={badgeColors}
               getPrazoBadgeClass={getPrazoBadgeClass}
-              tituloMoldura={`Algodão (${atividadesAlgodao.length})`}
+              tituloMoldura={`Algodão (${atividadesOrdenadas.filter(
+                (a) => (a.tipo_produto || '').toLowerCase() === 'algodao'
+              ).length})`}
               corMoldura="#22c55e"
             />
           </div>
@@ -429,25 +447,9 @@ const Dashboard = ({
           {/* Sublimação */}
           <div style={{ flex: 1, minWidth: 350 }}>
             <TabelaAtividades
-              atividades={atividadesSublimacao}
-              isAdmin={isAdmin}
-              usuarioAtual={usuarioAtual?.toLowerCase()} 
-              onVisualizar={handleVisualizar}
-              onAbrirEdicao={onAbrirEdicao}
-              onApagar={onApagar}
-              onRetornar={onRetornar}
-              onConcluir={onConcluir}
-              isNovo={isNovo}
-              badgeColors={badgeColors}
-              getPrazoBadgeClass={getPrazoBadgeClass}
-              tituloMoldura={`Sublimação (${atividadesSublimacao.length})`}
-              corMoldura="#3182ce"
-            />
-          </div>
-          {/* Algodão */}
-          <div style={{ flex: 1, minWidth: 350 }}>
-            <TabelaAtividades
-              atividades={atividadesAlgodao}
+              atividades={atividadesOrdenadas.filter(
+                (a) => (a.tipo_produto || '').toLowerCase() === 'sublimacao'
+              )}
               isAdmin={isAdmin}
               usuarioAtual={usuarioAtual?.toLowerCase()}
               onVisualizar={handleVisualizar}
@@ -458,7 +460,31 @@ const Dashboard = ({
               isNovo={isNovo}
               badgeColors={badgeColors}
               getPrazoBadgeClass={getPrazoBadgeClass}
-              tituloMoldura={`Algodão (${atividadesAlgodao.length})`}
+              tituloMoldura={`Sublimação (${atividadesOrdenadas.filter(
+                (a) => (a.tipo_produto || '').toLowerCase() === 'sublimacao'
+              ).length})`}
+              corMoldura="#3182ce"
+            />
+          </div>
+          {/* Algodão */}
+          <div style={{ flex: 1, minWidth: 350 }}>
+            <TabelaAtividades
+              atividades={atividadesOrdenadas.filter(
+                (a) => (a.tipo_produto || '').toLowerCase() === 'algodao'
+              )}
+              isAdmin={isAdmin}
+              usuarioAtual={usuarioAtual?.toLowerCase()}
+              onVisualizar={handleVisualizar}
+              onAbrirEdicao={onAbrirEdicao}
+              onApagar={onApagar}
+              onRetornar={onRetornar}
+              onConcluir={onConcluir}
+              isNovo={isNovo}
+              badgeColors={badgeColors}
+              getPrazoBadgeClass={getPrazoBadgeClass}
+              tituloMoldura={`Algodão (${atividadesOrdenadas.filter(
+                (a) => (a.tipo_produto || '').toLowerCase() === 'algodao'
+              ).length})`}
               corMoldura="#22c55e"
             />
           </div>
@@ -467,7 +493,11 @@ const Dashboard = ({
         <TabelaAtividades
           atividades={atividadesOrdenadas}
           isAdmin={isAdmin}
-          usuarioAtual={usuarioAtual?.toLowerCase()} 
+          usuarioAtual={
+            isAdmin && setorCardSelecionado === 'Costura'
+              ? 'costura'
+              : usuarioAtual?.toLowerCase()
+          }
           onVisualizar={handleVisualizar}
           onAbrirEdicao={onAbrirEdicao}
           onApagar={onApagar}
@@ -477,7 +507,7 @@ const Dashboard = ({
           badgeColors={badgeColors}
           getPrazoBadgeClass={getPrazoBadgeClass}
         />
-      )}
+     )}
     </div>
   );
 };

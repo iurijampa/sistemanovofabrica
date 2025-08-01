@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
 const Moldura = ({ cor, titulo, children }) => (
   <div
@@ -48,10 +48,18 @@ const TabelaAtividades = ({
   badgeColors,
   getPrazoBadgeClass,
   tituloMoldura,
-  corMoldura
+  corMoldura,
+  costureiraFiltro // Recebe do Dashboard
 }) => {
   const isImpressao = usuarioAtual === 'impressao';
   const isCostura = usuarioAtual === 'costura';
+
+  // Atividades filtradas (apenas filtra, não exibe o filtro)
+  const atividadesFiltradas = useMemo(() => {
+    if ((isCostura || (isAdmin && usuarioAtual === 'costura')) && costureiraFiltro)
+      return atividades.filter(a => a.costureira === costureiraFiltro);
+    return atividades;
+  }, [atividades, costureiraFiltro, isAdmin, usuarioAtual, isCostura]);
 
   const TableContent = (
     <div style={{ width: '100%', overflowX: 'auto' }}>
@@ -76,12 +84,11 @@ const TabelaAtividades = ({
           </tr>
         </thead>
         <tbody>
-          {atividades.map((a) => {
-  const setorParaNovo = isAdmin
-    ? a.setorAtual?.toLowerCase()
-    : usuarioAtual?.toLowerCase();
-  const mostrarNovo = a.setorAtual && isNovo(a.id, setorParaNovo, a.dataEnvio);
-
+          {atividadesFiltradas.map((a) => {
+            const setorParaNovo = isAdmin
+              ? a.setorAtual?.toLowerCase()
+              : usuarioAtual?.toLowerCase();
+            const mostrarNovo = a.setorAtual && isNovo(a.id, setorParaNovo, a.dataEnvio);
 
             return (
               <tr
@@ -224,8 +231,8 @@ const TabelaAtividades = ({
                     </td>
 
                     {(isAdmin || isCostura || usuarioAtual === 'embalagem' || a.setorAtual === 'Finalizado') && (
-  <td>{a.costureira || '-'}</td>
-)}
+                      <td>{a.costureira || '-'}</td>
+                    )}
 
                     <td>
                       {a.funcionarioEnvio || '-'}
@@ -254,41 +261,40 @@ const TabelaAtividades = ({
                       👁️
                     </button>
                     {isAdmin && (
-  <button
-  title="Copiar link de rastreio"
-  onClick={() => {
-    const link = `https://stampblue.netlify.app/?id=${a.id}`;
+                      <button
+                        title="Copiar link de rastreio"
+                        onClick={() => {
+                          const link = `https://stampblue.netlify.app/?id=${a.id}`;
 
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(link)
-        .then(() => {
-          alert('🔗 Link de rastreamento copiado!');
-        })
-        .catch(err => {
-          alert('Erro ao copiar o link: ' + err);
-        });
-    } else {
-      // Fallback para navegadores sem suporte
-      const textarea = document.createElement("textarea");
-      textarea.value = link;
-      textarea.style.position = "fixed"; // evita scroll ao focar
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-      try {
-        document.execCommand('copy');
-        alert('🔗 Link de rastreamento copiado!');
-      } catch (err) {
-        alert('Erro ao copiar o link');
-      }
-      document.body.removeChild(textarea);
-    }
-  }}
->
-  🔗
-</button>
-
-)}
+                          if (navigator.clipboard && window.isSecureContext) {
+                            navigator.clipboard.writeText(link)
+                              .then(() => {
+                                alert('🔗 Link de rastreamento copiado!');
+                              })
+                              .catch(err => {
+                                alert('Erro ao copiar o link: ' + err);
+                              });
+                          } else {
+                            // Fallback para navegadores sem suporte
+                            const textarea = document.createElement("textarea");
+                            textarea.value = link;
+                            textarea.style.position = "fixed"; // evita scroll ao focar
+                            document.body.appendChild(textarea);
+                            textarea.focus();
+                            textarea.select();
+                            try {
+                              document.execCommand('copy');
+                              alert('🔗 Link de rastreamento copiado!');
+                            } catch (err) {
+                              alert('Erro ao copiar o link');
+                            }
+                            document.body.removeChild(textarea);
+                          }
+                        }}
+                      >
+                        🔗
+                      </button>
+                    )}
 
                     {isAdmin && (
                       <>
