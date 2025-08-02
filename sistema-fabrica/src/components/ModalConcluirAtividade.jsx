@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './ModalConcluirAtividade.css';
+import { supabase } from '../supabaseClient';
 
 const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar, batedores }) => {
   const [nomeFuncionario, setNomeFuncionario] = useState('');
@@ -10,7 +11,22 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar, batedores 
   const [funcionariosBatida, setFuncionariosBatida] = useState([]);
   const [maquinaBatida, setMaquinaBatida] = useState('');
 
+  // Novos estados para papel e máquina (impressão/sublimação)
+  const [papel, setPapel] = useState('');
+  const [listaPapeis, setListaPapeis] = useState([]);
+  const [maquinaImpressao, setMaquinaImpressao] = useState('');
+
   const tipoProduto = (atividade.tipo_produto || '').toLowerCase();
+
+  // Buscar papeis do banco apenas para impressão/sublimação
+  useEffect(() => {
+  if (atividade.setorAtual === 'Impressao') {
+    supabase.from('papeis').select('*').then(({ data, error }) => {
+      console.log('Papeis do banco:', data, error);
+      setListaPapeis(data || []);
+    });
+  }
+}, [atividade]);
 
   // Função para marcar/desmarcar funcionário
   const handleFuncionarioBatida = (nome) => {
@@ -45,17 +61,32 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar, batedores 
       return;
     }
 
+    // Validação para papel e máquina (apenas impressão/sublimação)
+    if (atividade.setorAtual === 'Impressao' && tipoProduto === 'sublimacao') {
+      if (!papel) {
+        alert('Selecione o tipo de papel.');
+        return;
+      }
+      if (!maquinaImpressao) {
+        alert('Selecione a máquina utilizada.');
+        return;
+      }
+    }
+
     // Passe os novos campos para onConfirmar
     onConfirmar(
-  nomeFuncionario.trim(),
-  observacao.trim(),
-  atividade.setorAtual === 'Batida'
-    ? costureira.trim()
-    : (atividade.costureira || ''), // <-- mantém o valor já salvo!
-  atividade.setorAtual === 'Impressao' && tipoProduto === 'algodao' ? destinoImpressaoAlgodao.trim() : null,
-  atividade.setorAtual === 'Batida' ? funcionariosBatida : null,
-  atividade.setorAtual === 'Batida' ? maquinaBatida.trim() : null
-);
+      nomeFuncionario.trim(),
+      observacao.trim(),
+      atividade.setorAtual === 'Batida'
+        ? costureira.trim()
+        : (atividade.costureira || ''),
+      atividade.setorAtual === 'Impressao' && tipoProduto === 'algodao' ? destinoImpressaoAlgodao.trim() : null,
+      atividade.setorAtual === 'Batida' ? funcionariosBatida : null,
+      atividade.setorAtual === 'Batida' ? maquinaBatida.trim() : null,
+      // Novos campos:
+      atividade.setorAtual === 'Impressao' && tipoProduto === 'sublimacao' ? papel : null,
+      atividade.setorAtual === 'Impressao' && tipoProduto === 'sublimacao' ? maquinaImpressao : null
+    );
   };
 
   return (
@@ -99,27 +130,27 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar, batedores 
               <label>
                 Quem bateu o pedido:
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 6 }}>
-  {batedores && batedores.map(b => (
-    <label key={b.id} style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 4,
-      background: funcionariosBatida.includes(b.nome) ? '#e0f7fa' : '#f5f5f5',
-      borderRadius: 16,
-      padding: '4px 12px',
-      cursor: 'pointer',
-      marginBottom: 8
-    }}>
-      <input
-        type="checkbox"
-        checked={funcionariosBatida.includes(b.nome)}
-        onChange={() => handleFuncionarioBatida(b.nome)}
-        style={{ accentColor: '#06b6d4' }}
-      />
-      {b.nome}
-    </label>
-  ))}
-</div>
+                  {batedores && batedores.map(b => (
+                    <label key={b.id} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      background: funcionariosBatida.includes(b.nome) ? '#e0f7fa' : '#f5f5f5',
+                      borderRadius: 16,
+                      padding: '4px 12px',
+                      cursor: 'pointer',
+                      marginBottom: 8
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={funcionariosBatida.includes(b.nome)}
+                        onChange={() => handleFuncionarioBatida(b.nome)}
+                        style={{ accentColor: '#06b6d4' }}
+                      />
+                      {b.nome}
+                    </label>
+                  ))}
+                </div>
               </label>
               <br />
               <label>
@@ -155,6 +186,42 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar, batedores 
               <br />
             </>
           )}
+
+          {/* Impressão - Sublimação: tipo de papel e máquina */}
+          {atividade.setorAtual === 'Impressao' && tipoProduto === 'sublimacao' && (
+  <>
+    <label>
+      Tipo de papel:
+      <select
+        value={papel}
+        onChange={e => setPapel(e.target.value)}
+        required
+      >
+        <option value="">Selecione</option>
+        {listaPapeis.map(p => (
+  <option key={p.id} value={`${p.nome.trim()}|${(p.gramatura || '').trim()}`}>
+  {p.nome.trim()}{p.gramatura ? ` - ${p.gramatura}` : ''}
+</option>
+))}
+      </select>
+    </label>
+    <br />
+    <label>
+      Máquina utilizada:
+      <select
+        value={maquinaImpressao}
+        onChange={e => setMaquinaImpressao(e.target.value)}
+        required
+      >
+        <option value="">Selecione</option>
+        <option value="Epson">ORIX 01</option>
+        <option value="Mimaki">ORIX 02</option>
+        {/* Adicione outras máquinas se necessário */}
+      </select>
+    </label>
+    <br />
+  </>
+)}
 
           <label>
             Observação:

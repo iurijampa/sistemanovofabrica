@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import logo from '../assets/logo.png';
-import { FaHome, FaPlus, FaHistory, FaSignOutAlt, FaBoxes, FaChartBar } from 'react-icons/fa';
+import { FaHome, FaPlus, FaHistory, FaSignOutAlt, FaBoxes, FaChartBar, FaRegFileAlt } from 'react-icons/fa';
 
 const Sidebar = ({ setorLogado, onLogout }) => {
   const [recolhido, setRecolhido] = useState(false);
@@ -99,28 +99,38 @@ const Sidebar = ({ setorLogado, onLogout }) => {
             </Link>
           </li>
 
-          {setorNormalizado === 'admin' && (
-            <>
-              <li>
-                <Link
-                  to="/cadastro-pedido"
-                  style={linkStyle(recolhido)}
-                >
-                  <FaPlus size={20} />
-                  {!recolhido && <span style={{ marginLeft: 10 }}>Cadastrar Pedido</span>}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/estoque"
-                  style={linkStyle(recolhido)}
-                >
-                  <FaBoxes size={20} />
-                  {!recolhido && <span style={{ marginLeft: 10 }}>Estoque</span>}
-                </Link>
-              </li>
-            </>
-          )}
+
+{setorNormalizado === 'admin' && (
+  <>
+    <li>
+      <Link
+        to="/cadastro-pedido"
+        style={linkStyle(recolhido)}
+      >
+        <FaPlus size={20} />
+        {!recolhido && <span style={{ marginLeft: 10 }}>Cadastrar Pedido</span>}
+      </Link>
+    </li>
+    <li>
+      <Link
+        to="/estoque"
+        style={linkStyle(recolhido)}
+      >
+        <FaBoxes size={20} />
+        {!recolhido && <span style={{ marginLeft: 10 }}>Estoque de Malha</span>}
+      </Link>
+    </li>
+    <li>
+      <Link
+        to="/estoque-papel"
+        style={linkStyle(recolhido)}
+      >
+        <FaRegFileAlt size={20} />
+        {!recolhido && <span style={{ marginLeft: 10 }}>Estoque de Papel</span>}
+      </Link>
+    </li>
+  </>
+)}
 
           <li>
             <Link

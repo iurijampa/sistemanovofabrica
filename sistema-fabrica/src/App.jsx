@@ -17,6 +17,7 @@ import { registrarMovimentacao } from './utils/registrarMovimentacao';
 import Estoque from './pages/Estoque';
 import ModalAlertaEstoque from './components/ModalAlertaEstoque';
 import RelatorioBatedores from './pages/RelatorioBatedores';
+import EstoquePapel from './pages/EstoquePapel';
 
 const LIMITES_ALERTA = {
   'AERODRY': 100,
@@ -215,14 +216,16 @@ function App() {
   };
 
   const concluirAtividade = async (
-    pedidoId,
-    nomeFuncionario,
-    observacao,
-    costureira = null,
-    destinoPersonalizado = null,
-    funcionariosBatida = null,
-    maquinaBatida = null
-  ) => {
+  pedidoId,
+  nomeFuncionario,
+  observacao,
+  costureira = null,
+  destinoPersonalizado = null,
+  funcionariosBatida = null,
+  maquinaBatida = null,
+  papel = null, // <-- novo
+  maquinaImpressao = null // <-- novo
+) => {
     const { data: atividadeAtual, error: fetchError } = await supabase
       .from('atividades')
       .select('*')
@@ -281,6 +284,63 @@ function App() {
   funcionariobatida: funcionariosBatida ? funcionariosBatida.join(',') : null,
   maquinabatida: maquinaBatida || null,
 });
+
+      // Após atualizar a atividade:
+      if (
+  setorAnteriorVal === 'Impressao' &&
+  (atividadeAtual.tipo_produto || '').toLowerCase() === 'sublimacao'
+) {
+  const quantidade = Number(atividadeAtual.quantidade_pecas) || 1;
+
+  const [nomePapel, gramaturaPapel] = (papel || '').split('|');
+
+  const { data: papelDb } = await supabase
+    .from('papeis')
+    .select('id')
+    .eq('nome', nomePapel)
+    .eq('gramatura', gramaturaPapel)
+    .single();
+
+  if (!papelDb) {
+    alert('Tipo de papel não encontrado!');
+    return;
+  }
+
+  // Buscar o estoque do papel
+  const { data: estoque } = await supabase
+    .from('estoque_papel')
+    .select('id, quantidade_atual')
+    .eq('papel_id', papelDb.id)
+    .single();
+
+  if (!estoque) {
+    alert('Papel não encontrado no estoque!');
+    return;
+  }
+
+  if (estoque.quantidade_atual < quantidade) {
+    alert('Estoque de papel insuficiente!');
+    return;
+  }
+
+  // Atualizar estoque_papel
+  const novaQtd = estoque.quantidade_atual - quantidade;
+  await supabase
+    .from('estoque_papel')
+    .update({ quantidade_atual: novaQtd })
+    .eq('id', estoque.id);
+
+  // Registrar movimentação
+  await supabase.from('movimentacoes_papel').insert([{
+    papel_id: papelDb.id,
+    quantidade: -quantidade,
+    tipo: 'saida',
+    usuario: nomeFuncionario,
+    maquina: maquinaImpressao,
+    obs: observacao || `Saída automática ao concluir atividade ${pedidoId}`,
+    atividade_id: pedidoId
+  }]);
+}
 
       await carregarAtividades();
     }
@@ -472,6 +532,18 @@ function App() {
               )
             }
           />
+
+<Route
+  path="/estoque-papel"
+  element={
+    normalize(setorLogado) === 'admin' ? (
+      <EstoquePapel />
+    ) : (
+      <Navigate to="/" />
+    )
+  }
+/>
+          
           <Route path="*" element={<Navigate to="/" />} />
 
           <Route
@@ -503,31 +575,35 @@ function App() {
         )}
 
         {pedidoParaConcluir && (
-          <ModalConcluirAtividade
-            atividade={pedidoParaConcluir}
-            onCancelar={fecharModalConcluirAtividade}
-            onConfirmar={(
-              nome,
-              observacao,
-              costureira,
-              destinoPersonalizado,
-              funcionariosBatida,
-              maquinaBatida
-            ) => {
-              concluirAtividade(
-                pedidoParaConcluir.id,
-                nome,
-                observacao,
-                costureira,
-                destinoPersonalizado,
-                funcionariosBatida,
-                maquinaBatida
-              );
-              fecharModalConcluirAtividade();
-            }}
-            batedores={batedores} // <-- Passa a lista dinâmica aqui!
-          />
-        )}
+  <ModalConcluirAtividade
+    atividade={pedidoParaConcluir}
+    onCancelar={fecharModalConcluirAtividade}
+    onConfirmar={(
+      nome,
+      observacao,
+      costureira,
+      destinoPersonalizado,
+      funcionariosBatida,
+      maquinaBatida,
+      papel, // <-- novo
+      maquinaImpressao // <-- novo
+    ) => {
+      concluirAtividade(
+        pedidoParaConcluir.id,
+        nome,
+        observacao,
+        costureira,
+        destinoPersonalizado,
+        funcionariosBatida,
+        maquinaBatida,
+        papel, // <-- novo
+        maquinaImpressao // <-- novo
+      );
+      fecharModalConcluirAtividade();
+    }}
+    batedores={batedores}
+  />
+)}
 
         {pedidoParaRetornar && (
           <ModalRetornarAtividade
