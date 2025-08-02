@@ -214,8 +214,8 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar, batedores 
         required
       >
         <option value="">Selecione</option>
-        <option value="Epson">ORIX 01</option>
-        <option value="Mimaki">ORIX 02</option>
+        <option value="Orix 01">ORIX 01</option>
+        <option value="Orix 02">ORIX 02</option>
         {/* Adicione outras máquinas se necessário */}
       </select>
     </label>

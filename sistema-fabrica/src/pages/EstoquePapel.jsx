@@ -310,34 +310,36 @@ const EstoquePapel = () => {
             boxShadow: '0 2px 12px #1565c011'
           }}>
             <thead>
-              <tr style={{ background: "#e3f2fd" }}>
-                <th style={{ padding: 10 }}>Data</th>
-                <th style={{ padding: 10 }}>Tipo</th>
-                <th style={{ padding: 10 }}>Papel</th>
-                <th style={{ padding: 10 }}>Qtd</th>
-                <th style={{ padding: 10 }}>Usuário</th>
-                <th style={{ padding: 10 }}>Obs.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {movimentacoes
-                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                .slice(0, 20)
-                .map((mv, i) => (
-                  <tr key={i} style={{ background: mv.tipo === 'saida' ? '#fef2f2' : '#f0fdf4', fontSize: 15 }}>
-                    <td style={{ padding: 8 }}>{mv.created_at ? new Date(mv.created_at).toLocaleDateString('pt-BR') : '-'}</td>
-                    <td style={{ padding: 8 }}>{mv.tipo}</td>
-                    <td style={{ padding: 8 }}>
-  {mv.papeis
-    ? `${mv.papeis.nome} ${mv.papeis.gramatura || ''}`.trim().toUpperCase()
-    : mv.papel_id}
-</td>
-                    <td style={{ padding: 8 }}>{formatNumber(Math.abs(mv.quantidade))}</td>
-                    <td style={{ padding: 8 }}>{mv.usuario}</td>
-                    <td style={{ padding: 8 }}>{mv.obs}</td>
-                  </tr>
-                ))}
-            </tbody>
+  <tr style={{ background: "#e3f2fd" }}>
+    <th style={{ padding: 10 }}>Data</th>
+    <th style={{ padding: 10 }}>Tipo</th>
+    <th style={{ padding: 10 }}>Papel</th>
+    <th style={{ padding: 10 }}>Qtd</th>
+    <th style={{ padding: 10 }}>Usuário</th>
+    <th style={{ padding: 10 }}>Máquina</th> {/* NOVA COLUNA */}
+    <th style={{ padding: 10 }}>Obs.</th>
+  </tr>
+</thead>
+<tbody>
+  {movimentacoes
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 20)
+    .map((mv, i) => (
+      <tr key={i} style={{ background: mv.tipo === 'saida' ? '#fef2f2' : '#f0fdf4', fontSize: 15 }}>
+        <td style={{ padding: 8 }}>{mv.created_at ? new Date(mv.created_at).toLocaleDateString('pt-BR') : '-'}</td>
+        <td style={{ padding: 8 }}>{mv.tipo}</td>
+        <td style={{ padding: 8 }}>
+          {mv.papeis
+            ? `${mv.papeis.nome} ${mv.papeis.gramatura || ''}`.trim().toUpperCase()
+            : mv.papel_id}
+        </td>
+        <td style={{ padding: 8 }}>{formatNumber(Math.abs(mv.quantidade))}</td>
+        <td style={{ padding: 8 }}>{mv.usuario}</td>
+        <td style={{ padding: 8 }}>{mv.maquina || '-'}</td> {/* NOVA COLUNA */}
+        <td style={{ padding: 8 }}>{mv.obs}</td>
+      </tr>
+    ))}
+</tbody>
           </table>
         </div>
       </div>

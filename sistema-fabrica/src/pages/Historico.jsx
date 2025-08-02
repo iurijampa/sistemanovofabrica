@@ -136,72 +136,84 @@ const Historico = ({ setorUsuario }) => {
       ) : (
         <ul style={{ padding: 0, listStyle: 'none' }}>
           {filtrados.map((mov) => (
-            <li
-              key={mov.id}
-              style={{
-                borderBottom: '1px solid #ccc',
-                marginBottom: '10px',
-                paddingBottom: '8px',
-              }}
-            >
-              <strong>
-  {mov.funcionarioEnvio && mov.funcionarioEnvio.trim() !== ''
-    ? mov.funcionarioEnvio
-    : '—'}
-</strong>{" "}
-{mov.tipo}
-{mov.setor_origem?.toLowerCase() === 'batida' && mov.costureira ? (
-  <> para a costureira <strong>{mov.costureira}</strong></>
-) : null}
+  <li
+    key={mov.id}
+    style={{
+      borderBottom: '1px solid #ccc',
+      marginBottom: '10px',
+      paddingBottom: '8px',
+    }}
+  >
+    <strong>
+      {mov.funcionarioEnvio && mov.funcionarioEnvio.trim() !== ''
+        ? mov.funcionarioEnvio
+        : '—'}
+    </strong>{" "}
+    {mov.tipo}
+    {mov.setor_origem?.toLowerCase() === 'batida' && mov.costureira ? (
+      <> para a costureira <strong>{mov.costureira}</strong></>
+    ) : null}
 
+    {/* Nome do pedido + botão PDF */}
+    {mov.atividade?.pedido ? (
+      <>
+        {` o pedido `}
+        <strong>{mov.atividade.pedido}</strong>
+        {" "}
+        <button
+          onClick={() => gerarPDFPedido(montarPedido(mov))}
+          style={{
+            backgroundColor: '#e63946',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            padding: '5px 14px 5px 10px',
+            marginLeft: 8,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontWeight: 500,
+            fontSize: '14px',
+            cursor: 'pointer',
+          }}
+          title="Gerar PDF do Pedido"
+        >
+          <FaFilePdf size={16} />
+          Gerar PDF
+        </button>
+      </>
+    ) : mov.pedido_id ? (
+      ` o pedido ${mov.pedido_id.slice(0, 8)}`
+    ) : ''}
+    .<br />
+    {mov.setor_origem && <span>Origem: {mov.setor_origem} </span>}
+    {mov.setor_destino && <span>→ Destino: {mov.setor_destino}</span>}
+    <br />
 
-              {/* Nome do pedido + botão PDF */}
-              {mov.atividade?.pedido ? (
-                <>
-                  {` o pedido `}
-                  <strong>{mov.atividade.pedido}</strong>
-                  {" "}
-                  <button
-                    onClick={() => gerarPDFPedido(montarPedido(mov))}
-                    style={{
-                      backgroundColor: '#e63946',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '5px',
-                      padding: '5px 14px 5px 10px',
-                      marginLeft: 8,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      fontWeight: 500,
-                      fontSize: '14px',
-                      cursor: 'pointer',
-                    }}
-                    title="Gerar PDF do Pedido"
-                  >
-                    <FaFilePdf size={16} />
-                    Gerar PDF
-                  </button>
-                </>
-              ) : mov.pedido_id ? (
-                ` o pedido ${mov.pedido_id.slice(0, 8)}`
-              ) : ''}
-              .<br />
-              {mov.setor_origem && <span>Origem: {mov.setor_origem} </span>}
-              {mov.setor_destino && <span>→ Destino: {mov.setor_destino}</span>}
-              <br />
-              <small>
-                {mov.data
-                  ? new Date(mov.data + 'Z').toLocaleString()
-                  : ''}
-              </small>
-              {mov.observacaoEnvio && mov.observacaoEnvio.trim() !== '' && (
-                <div>
-                  <em>Obs: {mov.observacaoEnvio}</em>
-                </div>
-              )}
-            </li>
-          ))}
+    {/* NOVO: Máquina, Papel e Gramatura */}
+    {(mov.maquina || mov.papel_nome || mov.papel_gramatura) && (
+      <div>
+        {mov.maquina && <span><b>Máquina:</b> {mov.maquina} </span>}
+        {(mov.papel_nome || mov.papel_gramatura) && (
+          <span>
+            <b>Papel:</b> {mov.papel_nome || '-'} {mov.papel_gramatura || ''}
+          </span>
+        )}
+      </div>
+    )}
+
+    <small>
+      {mov.data
+        ? new Date(mov.data + 'Z').toLocaleString()
+        : ''}
+    </small>
+    {mov.observacaoEnvio && mov.observacaoEnvio.trim() !== '' && (
+      <div>
+        <em>Obs: {mov.observacaoEnvio}</em>
+      </div>
+    )}
+  </li>
+))}
         </ul>
       )}
     </div>

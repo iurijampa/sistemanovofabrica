@@ -325,21 +325,27 @@ function App() {
 
   // Atualizar estoque_papel
   const novaQtd = estoque.quantidade_atual - quantidade;
-  await supabase
-    .from('estoque_papel')
-    .update({ quantidade_atual: novaQtd })
-    .eq('id', estoque.id);
+await supabase
+  .from('estoque_papel')
+  .update({ quantidade_atual: novaQtd })
+  .eq('id', estoque.id);
 
-  // Registrar movimentação
-  await supabase.from('movimentacoes_papel').insert([{
-    papel_id: papelDb.id,
-    quantidade: -quantidade,
-    tipo: 'saida',
-    usuario: nomeFuncionario,
-    maquina: maquinaImpressao,
-    obs: observacao || `Saída automática ao concluir atividade ${pedidoId}`,
-    atividade_id: pedidoId
-  }]);
+// Registrar movimentação
+console.log('Registrando movimentação de papel', {
+  papel_id: papelDb.id,
+  quantidade: -quantidade,
+  usuario: nomeFuncionario,
+  maquina: maquinaImpressao,
+  pedidoId
+});
+await supabase.from('movimentacoes_papel').insert([{
+  papel_id: papelDb.id,
+  quantidade: -quantidade,
+  tipo: 'saida',
+  usuario: nomeFuncionario,
+  maquina: maquinaImpressao,
+  obs: observacao || `Saída automática ao concluir atividade ${pedidoId}`
+}]);
 }
 
       await carregarAtividades();
