@@ -132,6 +132,18 @@ const Sidebar = ({ setorLogado, onLogout }) => {
   </>
 )}
 
+{setorNormalizado === 'impressao' && (
+  <li>
+    <Link
+      to="/estoque-papel"
+      style={linkStyle(recolhido)}
+    >
+      <FaRegFileAlt size={20} />
+      {!recolhido && <span style={{ marginLeft: 10 }}>Estoque de Papel</span>}
+    </Link>
+  </li>
+)}
+
           <li>
             <Link
               to="/historico"

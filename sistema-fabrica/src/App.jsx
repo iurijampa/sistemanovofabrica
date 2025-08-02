@@ -536,7 +536,7 @@ function App() {
 <Route
   path="/estoque-papel"
   element={
-    normalize(setorLogado) === 'admin' ? (
+    (normalize(setorLogado) === 'admin' || normalize(setorLogado) === 'impressao') ? (
       <EstoquePapel />
     ) : (
       <Navigate to="/" />
