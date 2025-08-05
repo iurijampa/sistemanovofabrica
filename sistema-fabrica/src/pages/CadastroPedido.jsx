@@ -1,13 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import './CadastroPedido.css';
 
-const LISTA_MALHAS = [
-  "dryfit", "dry jersie", "helanquinha", "aerodry", "dry tec",
-  "dry solution", "piquet de poliester", "piquet de algodão",
-  "dry manchester", "dry nba", "uv ft50", "helanca colegial",
-  "poliester", "oxford", "tactel", "ribana"
-];
+
 
 // Função para registrar movimentação de estoque
 async function registrarMovimentacaoEstoque({ malha, quantidade, tipo, usuario, obs }) {
@@ -87,6 +82,18 @@ const CadastroPedido = ({ onCadastrar }) => {
   const [quantidade, setQuantidade] = useState(0);
   const [tipoProduto, setTipoProduto] = useState('');
   const [carregando, setCarregando] = useState(false);
+  const [malhasBanco, setMalhasBanco] = useState([]);
+
+  // Buscar malhas do banco ao montar
+  useEffect(() => {
+    async function buscarMalhas() {
+      const { data, error } = await supabase.from('estoque').select('malha').order('malha', { ascending: true });
+      if (!error && data) {
+        setMalhasBanco(data.map(m => m.malha));
+      }
+    }
+    buscarMalhas();
+  }, []);
 
   const handleAdicionarImagemExtra = (e) => {
     const arquivos = Array.from(e.target.files);
@@ -96,7 +103,18 @@ const CadastroPedido = ({ onCadastrar }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (carregando) return; // Evita duplo clique
+  const [malhasBanco, setMalhasBanco] = useState([]);
 
+  // Buscar malhas do banco ao montar
+  useEffect(() => {
+    async function buscarMalhas() {
+      const { data, error } = await supabase.from('estoque').select('malha').order('malha', { ascending: true });
+      if (!error && data) {
+        setMalhasBanco(data.map(m => m.malha));
+      }
+    }
+    buscarMalhas();
+  }, []);
     setCarregando(true);
 
     if (!tipoProduto) {
@@ -386,7 +404,7 @@ dataParaProducao.setDate(dataParaProducao.getDate() - 5); // Subtrai 5 dias
               style={{ marginLeft: 8, minWidth: 180 }}
             >
               <option value="">Selecione a malha</option>
-              {LISTA_MALHAS.map((malhaOp) => (
+              {malhasBanco.map((malhaOp) => (
                 <option key={malhaOp} value={malhaOp}>{malhaOp.toUpperCase()}</option>
               ))}
             </select>

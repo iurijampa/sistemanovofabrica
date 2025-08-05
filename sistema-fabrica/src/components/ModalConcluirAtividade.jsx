@@ -22,7 +22,6 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar, batedores 
   useEffect(() => {
   if (atividade.setorAtual === 'Impressao') {
     supabase.from('papeis').select('*').then(({ data, error }) => {
-      console.log('Papeis do banco:', data, error);
       setListaPapeis(data || []);
     });
   }
@@ -37,27 +36,36 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar, batedores 
     );
   };
 
-  const handleSubmit = (e) => {
+  // Estado para evitar duplo clique
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
+    setLoading(true);
 
     if (!nomeFuncionario.trim() || !observacao.trim()) {
       alert('Por favor, preencha nome do funcionário e observação.');
+      setLoading(false);
       return;
     }
 
     if (atividade.setorAtual === 'Batida') {
       if (!costureira.trim()) {
         alert('Por favor, selecione a costureira.');
+        setLoading(false);
         return;
       }
       if (funcionariosBatida.length === 0 || !maquinaBatida.trim()) {
         alert('Selecione pelo menos um funcionário e a máquina utilizada.');
+        setLoading(false);
         return;
       }
     }
 
     if (atividade.setorAtual === 'Impressao' && tipoProduto === 'algodao' && !destinoImpressaoAlgodao.trim()) {
       alert('Por favor, selecione o setor de destino.');
+      setLoading(false);
       return;
     }
 
@@ -65,16 +73,18 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar, batedores 
     if (atividade.setorAtual === 'Impressao' && tipoProduto === 'sublimacao') {
       if (!papel) {
         alert('Selecione o tipo de papel.');
+        setLoading(false);
         return;
       }
       if (!maquinaImpressao) {
         alert('Selecione a máquina utilizada.');
+        setLoading(false);
         return;
       }
     }
 
     // Passe os novos campos para onConfirmar
-    onConfirmar(
+    await onConfirmar(
       nomeFuncionario.trim(),
       observacao.trim(),
       atividade.setorAtual === 'Batida'
@@ -87,6 +97,7 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar, batedores 
       atividade.setorAtual === 'Impressao' && tipoProduto === 'sublimacao' ? papel : null,
       atividade.setorAtual === 'Impressao' && tipoProduto === 'sublimacao' ? maquinaImpressao : null
     );
+    setLoading(false);
   };
 
   return (
@@ -232,7 +243,7 @@ const ModalConcluirAtividade = ({ atividade, onConfirmar, onCancelar, batedores 
             />
           </label>
           <br />
-          <button type="submit">Confirmar</button>
+          <button type="submit" disabled={loading}>{loading ? 'Salvando...' : 'Confirmar'}</button>
           <button type="button" onClick={onCancelar} style={{ marginLeft: '8px' }}>
             Cancelar
           </button>

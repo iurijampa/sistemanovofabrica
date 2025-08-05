@@ -5,7 +5,7 @@ import { supabase } from '../supabaseClient';
 import ModalAlertaEstoque from '../components/ModalAlertaEstoque';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-const LIMITES_ALERTA = {
+const LIMITES_ALERTA_PADRAO = {
   'AERODRY': 100,
   'DRYFIT': 500,
   'DRY JERSIE': 500,
@@ -89,6 +89,29 @@ const Estoque = () => {
   const [qtdMov, setQtdMov] = useState(1);
   const [obsMov, setObsMov] = useState('');
   const [malhaSelecionada, setMalhaSelecionada] = useState(null);
+  // Estados para adicionar/excluir malha
+  const [adicionando, setAdicionando] = useState(false);
+  const [novaMalha, setNovaMalha] = useState('');
+  const [showAddBar, setShowAddBar] = useState(false);
+  const [showDeleteBox, setShowDeleteBox] = useState(false);
+  const [malhasParaExcluir, setMalhasParaExcluir] = useState([]);
+  // Admin
+  const isAdmin = localStorage.getItem('role') === 'admin';
+
+
+// Para edição inline
+const [editandoLimite, setEditandoLimite] = useState(null); // id da malha
+const [novoLimite, setNovoLimite] = useState('');
+
+// Função para obter o limite (da linha do estoque ou padrão)
+function getLimite(item) {
+  // item é o objeto da linha do estoque
+  if (item.limite_alerta !== undefined && item.limite_alerta !== null) {
+    return item.limite_alerta;
+  }
+  // fallback para padrão
+  return LIMITES_ALERTA_PADRAO[item.malha?.toUpperCase()];
+}
 
   useEffect(() => {
     buscarEstoque();
@@ -107,8 +130,7 @@ const Estoque = () => {
   useEffect(() => {
     if (!loading && estoque.length > 0) {
       const emAlerta = estoque.filter((item) => {
-        const nome = item.malha?.toUpperCase();
-        const limite = LIMITES_ALERTA[nome];
+        const limite = getLimite(item);
         return limite !== undefined && item.quantidade <= limite;
       });
       setBaixoEstoque(emAlerta);
@@ -212,14 +234,31 @@ const Estoque = () => {
           <div>Entradas hoje</div>
           <strong style={valorStyle}>{formatNumber(totalEntradaHoje)}</strong>
         </div>
-        <div style={{ ...cardStyle, background: '#f3f4f6', color: '#475569' }}>
+        <div style={{
+          ...cardStyle,
+          background: '#ffebee', // vermelho claro de alerta
+          color: '#b71c1c', // vermelho escuro para o texto
+          border: '2px solid #e53935',
+          minWidth: 0,
+          maxWidth: 260,
+          flex: 1.2,
+          whiteSpace: 'normal',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          textOverflow: 'ellipsis',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-start',
+          boxShadow: '0 2px 16px #e5393522',
+        }}>
           <div>Malhas no limite</div>
-          <strong style={valorStyle}>{baixoEstoque.length}</strong>
-          {baixoEstoque.length > 0 && (
-            <div style={{ fontSize: 12, marginTop: 6 }}>
-              {baixoEstoque.map(b => b.malha?.toUpperCase()).join(', ')}
-            </div>
-          )}
+          <div style={{ fontSize: 17, fontWeight: 700, marginTop: 8, lineHeight: 1.3, wordBreak: 'break-word' }}>
+            {baixoEstoque.length === 0 ? 'Nenhuma' : baixoEstoque.map(b => (
+              <span key={b.id} style={{ display: 'inline-block', marginRight: 8 }}>
+                {b.malha?.toUpperCase()}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -377,21 +416,103 @@ const Estoque = () => {
             }}>
               <thead>
                 <tr style={{ background: '#e3f2fd' }}>
+                  {isAdmin && showDeleteBox && <th style={{ width: 40, borderBottom: '2px solid #bbdefb' }}></th>}
                   <th style={{
                     textAlign: 'left', padding: 12, fontWeight: 600,
                     fontSize: 16, letterSpacing: 0.2, color: '#1976d2', borderBottom: '2px solid #bbdefb'
                   }}>Malha</th>
                   <th style={{
                     textAlign: 'center', padding: 12, fontWeight: 600,
-                    fontSize: 16, color: '#1976d2', borderBottom: '2px solid #bbdefb'
-                  }}>Quantidade</th>
-                  <th style={{ borderBottom: '2px solid #bbdefb' }}></th>
+                    fontSize: 16, color: '#1976d2', borderBottom: '2px solid #bbdefb', minWidth: 120
+                  }}>
+                    Quantidade
+                  </th>
+                  <th style={{ borderBottom: '2px solid #bbdefb', minWidth: 140, textAlign: 'right' }}>
+                    {isAdmin && (
+                      <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                        <button
+                          style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
+                          onClick={() => { setShowAddBar(v => !v); setShowDeleteBox(false); }}
+                        >Adicionar Malha</button>
+                        <button
+                          style={{ background: showDeleteBox ? '#b91c1c' : '#e11d48', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
+                          onClick={() => { setShowDeleteBox(v => !v); setShowAddBar(false); setMalhasParaExcluir([]); }}
+                        >Excluir</button>
+                      </span>
+                    )}
+                  </th>
                 </tr>
               </thead>
               <tbody>
+                {/* Linha de adicionar malha no topo da tabela */}
+                {isAdmin && showAddBar && (
+                  <tr style={{ background: '#e3f2fd' }}>
+                    {showDeleteBox && <td></td>}
+                    <td style={{ padding: 8 }}>
+                      <input
+                        type="text"
+                        placeholder="Nome da malha"
+                        value={novaMalha}
+                        onChange={e => setNovaMalha(e.target.value)}
+                        style={{ padding: 6, borderRadius: 4, border: '1px solid #bbb', minWidth: 100, fontSize: 15 }}
+                        autoFocus
+                      />
+                    </td>
+                    <td style={{ padding: 8, textAlign: 'center', color: '#888' }}>-</td>
+                    <td style={{ padding: 8, display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
+                      <button
+                        style={{ background: adicionando ? '#90caf9' : '#1976d2', color: '#fff', border: 'none', borderRadius: 4, padding: '6px 14px', fontWeight: 700, fontSize: 15, cursor: adicionando ? 'not-allowed' : 'pointer' }}
+                        onClick={async () => {
+                          if (adicionando) return;
+                          setAdicionando(true);
+                          const nome = novaMalha.trim().toUpperCase();
+                          if (!nome) {
+                            alert('Preencha o nome da malha!');
+                            setAdicionando(false);
+                            return;
+                          }
+                          // Verifica se já existe
+                          const { data: malhaExistente, error: errorBusca } = await supabase
+                            .from('estoque')
+                            .select('id')
+                            .eq('malha', nome)
+                            .maybeSingle();
+                          if (errorBusca) {
+                            alert('Erro ao buscar malha: ' + errorBusca.message);
+                            setAdicionando(false);
+                            return;
+                          }
+                          if (malhaExistente && malhaExistente.id) {
+                            alert('Já existe uma malha com esse nome!');
+                            setAdicionando(false);
+                            return;
+                          }
+                          // Insere
+                          const { error: errorInsert } = await supabase
+                            .from('estoque')
+                            .insert({ malha: nome, quantidade: 0 });
+                          if (errorInsert) {
+                            alert('Erro ao adicionar malha: ' + errorInsert.message);
+                            setAdicionando(false);
+                            return;
+                          }
+                          setNovaMalha('');
+                          setShowAddBar(false);
+                          setAdicionando(false);
+                          buscarEstoque();
+                        }}
+                        disabled={adicionando}
+                      >{adicionando ? 'Carregando...' : 'Salvar'}</button>
+                      <button
+                        style={{ background: '#eee', color: '#888', border: 'none', borderRadius: 4, padding: '6px 14px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
+                        onClick={() => setShowAddBar(false)}
+                      >Cancelar</button>
+                    </td>
+                  </tr>
+                )}
                 {estoque.map((item) => {
                   const nome = item.malha?.toUpperCase();
-                  const limite = LIMITES_ALERTA[nome];
+                  const limite = getLimite(item);
                   let bg = '#e3f9e5';
                   if (limite !== undefined) {
                     if (item.quantidade <= limite) {
@@ -408,6 +529,21 @@ const Estoque = () => {
                         transition: 'background 0.2s'
                       }}
                     >
+                      {isAdmin && showDeleteBox && (
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={malhasParaExcluir.includes(item.id)}
+                            onChange={e => {
+                              if (e.target.checked) {
+                                setMalhasParaExcluir([...malhasParaExcluir, item.id]);
+                              } else {
+                                setMalhasParaExcluir(malhasParaExcluir.filter(id => id !== item.id));
+                              }
+                            }}
+                          />
+                        </td>
+                      )}
                       <td style={{ padding: 10, fontWeight: 500 }}>
                         {nome}
                       </td>
@@ -428,7 +564,7 @@ const Estoque = () => {
                           {item.quantidade}
                         </span>
                       </td>
-                      <td style={{ padding: 10 }}>
+                      <td style={{ padding: 10, textAlign: 'right', minWidth: 210, display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
                         <button
                           style={{
                             background: '#007FFF',
@@ -439,7 +575,7 @@ const Estoque = () => {
                             fontWeight: 600,
                             fontSize: 15,
                             cursor: 'pointer',
-                            marginRight: 4,
+                            marginRight: 0,
                             boxShadow: '0 2px 8px #00968813',
                             transition: 'background .15s'
                           }}
@@ -452,8 +588,57 @@ const Estoque = () => {
                         >
                           Movimentar
                         </button>
+                        <button
+                          style={{
+                            background: '#f59e42',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: 6,
+                            padding: '6px 14px',
+                            fontWeight: 600,
+                            fontSize: 15,
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 8px #ff980013',
+                            transition: 'background .15s'
+                          }}
+                          onClick={() => {
+                            setEditandoLimite(item.id);
+                            setNovoLimite(limite !== undefined ? limite : '');
+                          }}
+                        >Limite</button>
+                        {editandoLimite === item.id && (
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', background: '#fffbe7', borderRadius: 6, padding: '6px 10px', boxShadow: '0 2px 8px #f59e4211' }}>
+                            <input
+                              type="number"
+                              min={1}
+                              value={novoLimite}
+                              style={{ width: 70, fontSize: 15, borderRadius: 4, border: '1px solid #bbb', padding: '3px 6px' }}
+                              onChange={e => setNovoLimite(e.target.value)}
+                            />
+                            <button
+                              style={{ background: '#43a047', color: '#fff', borderRadius: 6, padding: '4px 10px', fontWeight: 600, border: 'none', fontSize: 14 }}
+                              onClick={async () => {
+                                const n = Number(novoLimite);
+                                if (!n || n < 1) { alert('Informe um valor válido!'); return; }
+                                // Atualiza limite_alerta na tabela estoque
+                                const { error } = await supabase.from('estoque').update({ limite_alerta: n }).eq('id', item.id);
+                                if (error) {
+                                  alert('Erro ao salvar limite: ' + error.message);
+                                  return;
+                                }
+                                // Atualiza local
+                                setEstoque(prev => prev.map(e => e.id === item.id ? { ...e, limite_alerta: n } : e));
+                                setEditandoLimite(null);
+                              }}
+                            >Salvar</button>
+                            <button
+                              style={{ background: '#eee', color: '#888', borderRadius: 6, padding: '4px 10px', border: 'none', fontWeight: 600, fontSize: 14 }}
+                              onClick={() => setEditandoLimite(null)}
+                            >Cancelar</button>
+                          </div>
+                        )}
                         {movimentando === item.id && (
-                          <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <div style={{ marginTop: 8, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                             <select value={tipoMov} onChange={e => setTipoMov(e.target.value)}>
                               <option value="saida">Saída</option>
                               <option value="entrada">Entrada</option>
@@ -488,6 +673,26 @@ const Estoque = () => {
                 })}
               </tbody>
             </table>
+            {/* Barra de exclusão múltipla */}
+            {isAdmin && showDeleteBox && malhasParaExcluir.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                <button
+                  style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 18px', fontWeight: 600, fontSize: 16, cursor: 'pointer' }}
+                  onClick={async () => {
+                    if (!window.confirm('Tem certeza que deseja excluir as malhas selecionadas?')) return;
+                    for (const id of malhasParaExcluir) {
+                      await supabase.from('estoque').delete().eq('id', id);
+                    }
+                    setMalhasParaExcluir([]);
+                    buscarEstoque();
+                  }}
+                >Excluir Selecionadas</button>
+                <button
+                  style={{ background: '#eee', color: '#888', border: 'none', borderRadius: 6, padding: '10px 18px', fontWeight: 600, fontSize: 16, cursor: 'pointer', marginLeft: 8 }}
+                  onClick={() => setMalhasParaExcluir([])}
+                >Cancelar</button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -495,7 +700,7 @@ const Estoque = () => {
         <ModalAlertaEstoque
           baixoEstoque={baixoEstoque}
           onClose={() => setShowAlerta(false)}
-          limites={LIMITES_ALERTA}
+          limites={item => getLimite(item)}
         />
       )}
     </div>

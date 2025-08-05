@@ -21,6 +21,10 @@ const LoginEmailSenha = ({ onLogin }) => {
   setErro('Usuário ou senha incorretos');
 } else {
   localStorage.setItem('usuario', JSON.stringify(data));
+  // Salva o setor como 'role' para facilitar o controle de admin
+  if (data.setor) {
+    localStorage.setItem('role', data.setor.toLowerCase());
+  }
   onLogin(data);
 }
   };

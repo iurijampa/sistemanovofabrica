@@ -43,7 +43,8 @@ const ModalAlertaEstoque = ({ baixoEstoque, onClose, limites }) => {
     const nome = item.malha
       ? item.malha?.toUpperCase()
       : ((item.papeis?.nome || '') + ' ' + (item.papeis?.gramatura || '')).trim().toUpperCase();
-    const limite = limites?.[nome] || 600;
+    // Para papel, limite vem de item.limite_alerta; para malha pode ser item.limite_alerta ou item.limite
+    const limite = item.limite_alerta ?? item.limite ?? '-';
     const qtd = item.quantidade ?? item.quantidade_atual;
     return (
       <li key={item.id} style={{ marginBottom: 5 }}>
