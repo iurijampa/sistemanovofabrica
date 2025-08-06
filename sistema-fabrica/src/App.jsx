@@ -336,7 +336,7 @@ console.log('Registrando movimentação de papel', {
   quantidade: -quantidade,
   usuario: nomeFuncionario,
   maquina: maquinaImpressao,
-  pedidoId
+  pedido_id: pedidoId
 });
 await supabase.from('movimentacoes_papel').insert([{
   papel_id: papelDb.id,
@@ -344,6 +344,7 @@ await supabase.from('movimentacoes_papel').insert([{
   tipo: 'saida',
   usuario: nomeFuncionario,
   maquina: maquinaImpressao,
+  pedido_id: pedidoId,
   obs: observacao || `Saída automática ao concluir atividade ${pedidoId}`
 }]);
 }

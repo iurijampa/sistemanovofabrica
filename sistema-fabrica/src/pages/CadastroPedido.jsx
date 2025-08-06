@@ -103,18 +103,6 @@ const CadastroPedido = ({ onCadastrar }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (carregando) return; // Evita duplo clique
-  const [malhasBanco, setMalhasBanco] = useState([]);
-
-  // Buscar malhas do banco ao montar
-  useEffect(() => {
-    async function buscarMalhas() {
-      const { data, error } = await supabase.from('estoque').select('malha').order('malha', { ascending: true });
-      if (!error && data) {
-        setMalhasBanco(data.map(m => m.malha));
-      }
-    }
-    buscarMalhas();
-  }, []);
     setCarregando(true);
 
     if (!tipoProduto) {

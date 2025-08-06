@@ -98,11 +98,15 @@ async function tratarResumoBatida(concluidasFiltradas, metaSetor, setHoje, setMe
     contagemPorDia[data] = (contagemPorDia[data] || 0) + qtd;
   });
 
-  const hojeISO = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-  const totalHoje = contagemPorDia[hojeISO] || 0;
+  // Padroniza o cálculo da data de hoje usando getSemanaLabels
+  const semana = getSemanaLabels();
+  const hojeYMD = semana.find(d => {
+    const now = new Date();
+    return d.ymd === now.toISOString().slice(0, 10);
+  })?.ymd || new Date().toISOString().slice(0, 10);
+  const totalHoje = contagemPorDia[hojeYMD] || 0;
   setHoje(totalHoje);
 
-  const semana = getSemanaLabels();
   let totalSemana = 0;
   const barras = semana.map(({ ymd, label }) => {
     const total = contagemPorDia[ymd] || 0;
@@ -186,9 +190,11 @@ export default function ResumoSetor({ setor }) {
       }
     });
 
+
+    // Se for Batida, calcula tudo por tratarResumoBatida e retorna imediatamente
     if (setorCap === "Batida") {
       await tratarResumoBatida(concluidasFiltradas, metaSetor, setHoje, setMedia, setBarrasSemana, setParabens, audioRef, setorCap, setBarrasCalandra, setBarrasPrensa);
-      return;
+      return; // Garante que nada abaixo será executado
     }
 
     if (concluidasFiltradas.length > 0) {
@@ -208,10 +214,14 @@ export default function ResumoSetor({ setor }) {
     });
     setBarrasSemana(barras);
 
-    const hojeISO = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+    // Para os demais setores, contabiliza pedidos únicos do dia
+    const hojeYMD = semana.find(d => {
+      const now = new Date();
+      return d.ymd === now.toISOString().slice(0, 10);
+    })?.ymd || new Date().toISOString().slice(0, 10);
     const pedidosHoje = new Set();
     concluidasFiltradas.forEach(mov => {
-      if (mov.data.slice(0, 10) === hojeISO) pedidosHoje.add(mov.pedido_id);
+      if (mov.data.slice(0, 10) === hojeYMD) pedidosHoje.add(mov.pedido_id);
     });
     setHoje(pedidosHoje.size);
 
