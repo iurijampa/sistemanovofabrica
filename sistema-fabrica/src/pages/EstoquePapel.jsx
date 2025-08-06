@@ -161,7 +161,7 @@ function getLimite(item) {
       .order('papel_id', { ascending: true });
     const { data: movData } = await supabase
       .from('movimentacoes_papel')
-      .select('*, papeis:papel_id (nome, gramatura), pedido:pedido_id (pedido)')
+      .select('*, papeis:papel_id (nome, gramatura), atividades:pedido_id (pedido)')
       .order('created_at', { ascending: false });
     setEstoque(estoqueData || []);
     setMovimentacoes(movData || []);
@@ -560,7 +560,7 @@ function getLimite(item) {
         <td style={{ padding: 8 }}>{mv.maquina || '-'}</td>
         <td style={{ padding: 8 }}>
           {/* Exibe o nome do pedido se disponível */}
-          {mv.pedido_nome || mv.pedido?.nome || mv.pedido_id || '-'}
+          {mv.atividades?.pedido || mv.pedido_id || '-'}
         </td>
         <td style={{ padding: 8 }}>{mv.obs}</td>
       </tr>
